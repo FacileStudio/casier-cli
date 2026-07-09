@@ -40,5 +40,31 @@ impl Config {
             .with_context(|| format!("invalid config at {}", path.display()))?;
         Ok(config)
     }
+}
 
+#[derive(Debug, Deserialize)]
+pub struct ProjectConfig {
+    pub project: ProjectSection,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProjectSection {
+    pub space: String,
+    #[serde(default = "default_env")]
+    pub environment: String,
+}
+
+fn default_env() -> String {
+    "dev".to_string()
+}
+
+impl ProjectConfig {
+    pub fn load() -> Option<Self> {
+        let path = std::path::PathBuf::from(".clef.toml");
+        if !path.exists() {
+            return None;
+        }
+        let contents = std::fs::read_to_string(&path).ok()?;
+        toml::from_str(&contents).ok()
+    }
 }

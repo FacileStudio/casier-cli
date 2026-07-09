@@ -19,12 +19,28 @@ enum Commands {
     Login,
     #[command(about = "Clear stored credentials")]
     Logout,
+    #[command(about = "Initialize a .clef.toml for the current project")]
+    Init,
     #[command(about = "List spaces you belong to")]
     Spaces,
     #[command(about = "Manage secrets")]
     Secrets {
         #[command(subcommand)]
         action: SecretsAction,
+    },
+    #[command(about = "Compare secrets between two environments")]
+    Diff {
+        #[arg(short, long)]
+        space: String,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+    },
+    #[command(about = "Sync secrets with a .env file")]
+    Sync {
+        #[command(subcommand)]
+        action: SyncAction,
     },
     #[command(about = "Inject secrets as env vars and run a command")]
     Run {
@@ -34,6 +50,28 @@ enum Commands {
         env: String,
         #[arg(last = true)]
         command: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SyncAction {
+    #[command(about = "Push a .env file to Clef")]
+    Push {
+        #[arg(short, long)]
+        space: String,
+        #[arg(short, long, default_value = "dev")]
+        env: String,
+        #[arg(short, long, default_value = ".env")]
+        file: String,
+    },
+    #[command(about = "Pull secrets from Clef to a .env file")]
+    Pull {
+        #[arg(short, long)]
+        space: String,
+        #[arg(short, long, default_value = "dev")]
+        env: String,
+        #[arg(short, long, default_value = ".env")]
+        file: String,
     },
 }
 
@@ -82,6 +120,18 @@ async fn main() -> ExitCode {
     let result = match cli.command {
         Commands::Login => commands::login::run().await.map(|_| ExitCode::SUCCESS),
         Commands::Logout => commands::logout::run().map(|_| ExitCode::SUCCESS),
+        Commands::Init => commands::init::run().await.map(|_| ExitCode::SUCCESS),
+        Commands::Diff { space, from, to } => commands::diff::run(&space, &from, &to)
+            .await
+            .map(|_| ExitCode::SUCCESS),
+        Commands::Sync { action } => match action {
+            SyncAction::Push { space, env, file } => commands::sync::push(&space, &env, &file)
+                .await
+                .map(|_| ExitCode::SUCCESS),
+            SyncAction::Pull { space, env, file } => commands::sync::pull(&space, &env, &file)
+                .await
+                .map(|_| ExitCode::SUCCESS),
+        },
         Commands::Spaces => commands::spaces::run().await.map(|_| ExitCode::SUCCESS),
         Commands::Secrets { action } => match action {
             SecretsAction::List { space, env, show } => commands::secrets::list(&space, &env, show)

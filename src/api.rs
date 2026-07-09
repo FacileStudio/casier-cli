@@ -42,6 +42,18 @@ pub struct Secret {
     pub version: i32,
 }
 
+#[derive(Deserialize)]
+pub struct ImportResponse {
+    pub created: i32,
+    pub updated: i32,
+    pub skipped: i32,
+}
+
+#[derive(Deserialize)]
+pub struct ExportResponse {
+    pub content: String,
+}
+
 impl ApiClient {
     pub fn new(base_url: &str, token: Option<String>) -> Self {
         Self {
@@ -152,6 +164,35 @@ impl ApiClient {
             .into_iter()
             .find(|s| s.key == key)
             .context(format!("secret '{}' not found", key))
+    }
+
+    pub async fn import_env(&self, space: &str, env: &str, content: &str) -> Result<ImportResponse> {
+        let path = format!("/spaces/{}/environments/{}/secrets/import", space, env);
+        let resp = self
+            .request(reqwest::Method::POST, &path)
+            .json(&serde_json::json!({ "content": content }))
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            bail!("POST {} failed ({}): {}", path, status, body);
+        }
+        Ok(resp.json().await?)
+    }
+
+    pub async fn export_env(&self, space: &str, env: &str) -> Result<ExportResponse> {
+        let path = format!("/spaces/{}/environments/{}/secrets/export", space, env);
+        let resp = self
+            .request(reqwest::Method::GET, &path)
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            bail!("GET {} returned {}", path, resp.status());
+        }
+        Ok(resp.json().await?)
     }
 
     pub async fn delete_secret(&self, space: &str, env: &str, key: &str) -> Result<()> {
