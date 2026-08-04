@@ -12,6 +12,13 @@ pub fn store_token(server_url: &str, token: &str) -> Result<()> {
 }
 
 pub fn get_token(server_url: &str) -> Result<Option<String>> {
+    if let Ok(token) = std::env::var("CASIER_TOKEN") {
+        let token = token.trim();
+        if !token.is_empty() {
+            return Ok(Some(token.to_string()));
+        }
+    }
+
     let entry = Entry::new(SERVICE, server_url)?;
     match entry.get_password() {
         Ok(token) => Ok(Some(token)),

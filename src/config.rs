@@ -1,15 +1,26 @@
-use anyhow::{Context, Result};
-use serde::Deserialize;
+use anyhow::{bail, Context, Result};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default = "default_server_url")]
     pub server_url: String,
 }
 
-fn default_server_url() -> String {
+pub fn default_server_url() -> String {
     "http://localhost:4000".to_string()
+}
+
+pub fn normalize_server_url(raw: &str) -> Result<String> {
+    let trimmed = raw.trim().trim_end_matches('/');
+    if trimmed.is_empty() {
+        bail!("server URL cannot be empty");
+    }
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return Ok(trimmed.to_string());
+    }
+    Ok(format!("https://{}", trimmed))
 }
 
 impl Config {
@@ -39,6 +50,21 @@ impl Config {
         let config: Self = toml::from_str(&contents)
             .with_context(|| format!("invalid config at {}", path.display()))?;
         Ok(config)
+    }
+
+    pub fn stored() -> Option<Self> {
+        let contents = std::fs::read_to_string(Self::path().ok()?).ok()?;
+        toml::from_str(&contents).ok()
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let dir = Self::dir()?;
+        std::fs::create_dir_all(&dir)
+            .with_context(|| format!("cannot create {}", dir.display()))?;
+        let path = Self::path()?;
+        let body = toml::to_string(self).context("cannot serialize config")?;
+        std::fs::write(&path, body).with_context(|| format!("cannot write {}", path.display()))?;
+        Ok(())
     }
 }
 

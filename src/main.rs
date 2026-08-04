@@ -4,6 +4,7 @@ mod cache;
 mod commands;
 mod config;
 mod envfile;
+mod loopback;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
@@ -18,7 +19,12 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     #[command(about = "Authenticate with the Casier server")]
-    Login,
+    Login {
+        #[arg(long, help = "Casier server URL (saved for future commands)")]
+        server: Option<String>,
+        #[arg(long, help = "Print the sign-in URL instead of opening a browser")]
+        no_browser: bool,
+    },
     #[command(about = "Clear stored credentials")]
     Logout,
     #[command(about = "Initialize a .casier.toml for the current project")]
@@ -152,7 +158,9 @@ async fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Login => commands::login::run().await.map(|_| ExitCode::SUCCESS),
+        Commands::Login { server, no_browser } => commands::login::run(server, no_browser)
+            .await
+            .map(|_| ExitCode::SUCCESS),
         Commands::Logout => commands::logout::run().map(|_| ExitCode::SUCCESS),
         Commands::Init => commands::init::run().await.map(|_| ExitCode::SUCCESS),
         Commands::Diff { project, from, to } => commands::diff::run(&project, &from, &to)

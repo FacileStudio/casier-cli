@@ -43,6 +43,18 @@ pub struct Secret {
 }
 
 #[derive(Deserialize)]
+struct ProjectsResponse {
+    #[serde(default)]
+    projects: Option<Vec<Project>>,
+}
+
+#[derive(Deserialize)]
+struct SecretsResponse {
+    #[serde(default)]
+    secrets: Option<Vec<Secret>>,
+}
+
+#[derive(Deserialize)]
 pub struct ImportResponse {
     pub created: i32,
     pub updated: i32,
@@ -77,11 +89,21 @@ impl ApiClient {
             .request(reqwest::Method::GET, "/auth/config")
             .send()
             .await
-            .context("failed to reach server")?;
+            .with_context(|| format!("failed to reach {}", self.base_url))?;
         if !resp.status().is_success() {
-            bail!("GET /auth/config returned {}", resp.status());
+            bail!(
+                "GET {}/auth/config returned {}",
+                self.base_url,
+                resp.status()
+            );
         }
-        Ok(resp.json().await?)
+        let body = resp.text().await?;
+        serde_json::from_str(&body).with_context(|| {
+            format!(
+                "{} did not answer with a Casier API response",
+                self.base_url
+            )
+        })
     }
 
     pub async fn login(&self, email: &str, password: &str) -> Result<AuthResponse> {
@@ -120,7 +142,8 @@ impl ApiClient {
         if !resp.status().is_success() {
             bail!("GET /projects returned {}", resp.status());
         }
-        Ok(resp.json().await?)
+        let body: ProjectsResponse = resp.json().await?;
+        Ok(body.projects.unwrap_or_default())
     }
 
     pub async fn list_secrets(&self, project: &str, env: &str) -> Result<Vec<Secret>> {
@@ -133,7 +156,8 @@ impl ApiClient {
         if !resp.status().is_success() {
             bail!("GET {} returned {}", path, resp.status());
         }
-        Ok(resp.json().await?)
+        let body: SecretsResponse = resp.json().await?;
+        Ok(body.secrets.unwrap_or_default())
     }
 
     pub async fn set_secret(
