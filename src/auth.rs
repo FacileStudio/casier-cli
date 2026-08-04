@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use keyring::Entry;
 
 const SERVICE: &str = "casier";
@@ -8,7 +8,14 @@ pub fn store_token(server_url: &str, token: &str) -> Result<()> {
     entry
         .set_password(token)
         .context("failed to store token in keychain")?;
-    Ok(())
+
+    match entry.get_password() {
+        Ok(stored) if stored == token => Ok(()),
+        _ => bail!(
+            "the token did not survive being written to the keychain\n\
+             Set CASIER_TOKEN in your environment instead"
+        ),
+    }
 }
 
 pub fn get_token(server_url: &str) -> Result<Option<String>> {

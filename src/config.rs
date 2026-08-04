@@ -9,7 +9,7 @@ pub struct Config {
 }
 
 pub fn default_server_url() -> String {
-    "http://localhost:4000".to_string()
+    "https://casier.facile.studio/api".to_string()
 }
 
 pub fn normalize_server_url(raw: &str) -> Result<String> {
