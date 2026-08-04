@@ -27,7 +27,7 @@ pub struct MeResponse {
 }
 
 #[derive(Deserialize)]
-pub struct Space {
+pub struct Project {
     pub name: String,
     pub slug: String,
     #[serde(default)]
@@ -111,20 +111,20 @@ impl ApiClient {
         Ok(resp.json().await?)
     }
 
-    pub async fn list_spaces(&self) -> Result<Vec<Space>> {
+    pub async fn list_projects(&self) -> Result<Vec<Project>> {
         let resp = self
-            .request(reqwest::Method::GET, "/spaces")
+            .request(reqwest::Method::GET, "/projects")
             .send()
             .await
             .context("failed to reach server")?;
         if !resp.status().is_success() {
-            bail!("GET /spaces returned {}", resp.status());
+            bail!("GET /projects returned {}", resp.status());
         }
         Ok(resp.json().await?)
     }
 
-    pub async fn list_secrets(&self, space: &str, env: &str) -> Result<Vec<Secret>> {
-        let path = format!("/spaces/{}/environments/{}/secrets", space, env);
+    pub async fn list_secrets(&self, project: &str, env: &str) -> Result<Vec<Secret>> {
+        let path = format!("/projects/{}/environments/{}/secrets", project, env);
         let resp = self
             .request(reqwest::Method::GET, &path)
             .send()
@@ -138,12 +138,12 @@ impl ApiClient {
 
     pub async fn set_secret(
         &self,
-        space: &str,
+        project: &str,
         env: &str,
         key: &str,
         value: &str,
     ) -> Result<Secret> {
-        let path = format!("/spaces/{}/environments/{}/secrets", space, env);
+        let path = format!("/projects/{}/environments/{}/secrets", project, env);
         let resp = self
             .request(reqwest::Method::POST, &path)
             .json(&serde_json::json!({ "key": key, "value": value }))
@@ -158,16 +158,21 @@ impl ApiClient {
         Ok(resp.json().await?)
     }
 
-    pub async fn get_secret(&self, space: &str, env: &str, key: &str) -> Result<Secret> {
-        let secrets = self.list_secrets(space, env).await?;
+    pub async fn get_secret(&self, project: &str, env: &str, key: &str) -> Result<Secret> {
+        let secrets = self.list_secrets(project, env).await?;
         secrets
             .into_iter()
             .find(|s| s.key == key)
             .context(format!("secret '{}' not found", key))
     }
 
-    pub async fn import_env(&self, space: &str, env: &str, content: &str) -> Result<ImportResponse> {
-        let path = format!("/spaces/{}/environments/{}/secrets/import", space, env);
+    pub async fn import_env(
+        &self,
+        project: &str,
+        env: &str,
+        content: &str,
+    ) -> Result<ImportResponse> {
+        let path = format!("/projects/{}/environments/{}/secrets/import", project, env);
         let resp = self
             .request(reqwest::Method::POST, &path)
             .json(&serde_json::json!({ "content": content }))
@@ -182,8 +187,8 @@ impl ApiClient {
         Ok(resp.json().await?)
     }
 
-    pub async fn export_env(&self, space: &str, env: &str) -> Result<ExportResponse> {
-        let path = format!("/spaces/{}/environments/{}/secrets/export", space, env);
+    pub async fn export_env(&self, project: &str, env: &str) -> Result<ExportResponse> {
+        let path = format!("/projects/{}/environments/{}/secrets/export", project, env);
         let resp = self
             .request(reqwest::Method::GET, &path)
             .send()
@@ -195,8 +200,8 @@ impl ApiClient {
         Ok(resp.json().await?)
     }
 
-    pub async fn delete_secret(&self, space: &str, env: &str, key: &str) -> Result<()> {
-        let path = format!("/spaces/{}/environments/{}/secrets/{}", space, env, key);
+    pub async fn delete_secret(&self, project: &str, env: &str, key: &str) -> Result<()> {
+        let path = format!("/projects/{}/environments/{}/secrets/{}", project, env, key);
         let resp = self
             .request(reqwest::Method::DELETE, &path)
             .send()

@@ -23,22 +23,27 @@ fn cache_dir() -> Result<PathBuf> {
     Ok(Config::dir()?.join("cache"))
 }
 
-fn cache_file(dir: &Path, space: &str, env: &str) -> PathBuf {
-    dir.join(format!("{}-{}.json", space, env))
+fn cache_file(dir: &Path, project: &str, env: &str) -> PathBuf {
+    dir.join(format!("{}-{}.json", project, env))
 }
 
-pub fn store(space: &str, env: &str, secrets: &BTreeMap<String, String>) {
-    let result = cache_dir().and_then(|dir| write_to(&dir, space, env, secrets));
+pub fn store(project: &str, env: &str, secrets: &BTreeMap<String, String>) {
+    let result = cache_dir().and_then(|dir| write_to(&dir, project, env, secrets));
     if let Err(e) = result {
         eprintln!("casier: failed to write cache: {:#}", e);
     }
 }
 
-pub fn load(space: &str, env: &str) -> Result<CachedSecrets> {
-    read_from(&cache_dir()?, space, env)
+pub fn load(project: &str, env: &str) -> Result<CachedSecrets> {
+    read_from(&cache_dir()?, project, env)
 }
 
-fn write_to(dir: &Path, space: &str, env: &str, secrets: &BTreeMap<String, String>) -> Result<()> {
+fn write_to(
+    dir: &Path,
+    project: &str,
+    env: &str,
+    secrets: &BTreeMap<String, String>,
+) -> Result<()> {
     std::fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;
     set_mode(dir, 0o700)?;
 
@@ -46,15 +51,15 @@ fn write_to(dir: &Path, space: &str, env: &str, secrets: &BTreeMap<String, Strin
         fetched_at: now_utc(),
         secrets: secrets.clone(),
     };
-    let path = cache_file(dir, space, env);
+    let path = cache_file(dir, project, env);
     let json = serde_json::to_string_pretty(&cached)?;
     std::fs::write(&path, json).with_context(|| format!("cannot write {}", path.display()))?;
     set_mode(&path, 0o600)?;
     Ok(())
 }
 
-fn read_from(dir: &Path, space: &str, env: &str) -> Result<CachedSecrets> {
-    let path = cache_file(dir, space, env);
+fn read_from(dir: &Path, project: &str, env: &str) -> Result<CachedSecrets> {
+    let path = cache_file(dir, project, env);
     let contents = std::fs::read_to_string(&path)
         .with_context(|| format!("no cached secrets at {}", path.display()))?;
     serde_json::from_str(&contents).with_context(|| format!("invalid cache at {}", path.display()))
@@ -118,8 +123,8 @@ mod tests {
         secrets.insert("API_KEY".to_string(), "abc123".to_string());
         secrets.insert("DB_URL".to_string(), "postgres://x".to_string());
 
-        write_to(&dir, "myspace", "dev", &secrets).unwrap();
-        let cached = read_from(&dir, "myspace", "dev").unwrap();
+        write_to(&dir, "myproject", "dev", &secrets).unwrap();
+        let cached = read_from(&dir, "myproject", "dev").unwrap();
 
         assert_eq!(cached.secrets, secrets);
         assert!(!cached.fetched_at.is_empty());
@@ -127,7 +132,7 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(cache_file(&dir, "myspace", "dev"))
+            let mode = std::fs::metadata(cache_file(&dir, "myproject", "dev"))
                 .unwrap()
                 .permissions()
                 .mode();

@@ -5,11 +5,11 @@ use std::process::ExitCode;
 use crate::api::ApiClient;
 use crate::auth;
 use crate::cache;
-use crate::config::{resolve_space_env, Config};
+use crate::config::{resolve_project_env, Config};
 use crate::envfile;
 
-pub async fn run(file: &str, space: Option<String>, env: Option<String>) -> Result<ExitCode> {
-    let (space, env) = resolve_space_env(space, env)?;
+pub async fn run(file: &str, project: Option<String>, env: Option<String>) -> Result<ExitCode> {
+    let (project, env) = resolve_project_env(project, env)?;
 
     let content =
         std::fs::read_to_string(file).with_context(|| format!("failed to read {}", file))?;
@@ -22,22 +22,28 @@ pub async fn run(file: &str, space: Option<String>, env: Option<String>) -> Resu
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let secrets = client.list_secrets(&space, &env).await?;
-    cache::store(&space, &env, &cache::to_map(&secrets));
+    let secrets = client.list_secrets(&project, &env).await?;
+    cache::store(&project, &env, &cache::to_map(&secrets));
 
     let remote: BTreeSet<String> = secrets.into_iter().map(|s| s.key).collect();
     let (missing_remote, missing_local) = compare(&local, &remote);
 
     if missing_remote.is_empty() && missing_local.is_empty() {
-        println!("{} is in sync with {}/{}.", file, space, env);
+        println!("{} is in sync with {}/{}.", file, project, env);
         return Ok(ExitCode::SUCCESS);
     }
 
     for key in &missing_remote {
-        println!("- {}  (in {} but missing from {}/{})", key, file, space, env);
+        println!(
+            "- {}  (in {} but missing from {}/{})",
+            key, file, project, env
+        );
     }
     for key in &missing_local {
-        println!("+ {}  (in {}/{} but missing from {})", key, space, env, file);
+        println!(
+            "+ {}  (in {}/{} but missing from {})",
+            key, project, env, file
+        );
     }
 
     if missing_remote.is_empty() {

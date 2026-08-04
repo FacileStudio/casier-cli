@@ -23,8 +23,8 @@ enum Commands {
     Logout,
     #[command(about = "Initialize a .casier.toml for the current project")]
     Init,
-    #[command(about = "List spaces you belong to")]
-    Spaces,
+    #[command(about = "List projects you belong to")]
+    Projects,
     #[command(about = "Manage secrets")]
     Secrets {
         #[command(subcommand)]
@@ -33,7 +33,7 @@ enum Commands {
     #[command(about = "Compare secrets between two environments")]
     Diff {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(long)]
         from: String,
         #[arg(long)]
@@ -46,8 +46,8 @@ enum Commands {
     },
     #[command(about = "Inject secrets as env vars and run a command")]
     Run {
-        #[arg(short, long, help = "Space slug (defaults to .casier.toml)")]
-        space: Option<String>,
+        #[arg(short, long, help = "Project slug (defaults to .casier.toml)")]
+        project: Option<String>,
         #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
         env: Option<String>,
         #[arg(long, help = "Use cached secrets without contacting the server")]
@@ -55,12 +55,14 @@ enum Commands {
         #[arg(last = true)]
         command: Vec<String>,
     },
-    #[command(about = "Check a .env file against remote secrets (exit 1 if keys are missing remotely)")]
+    #[command(
+        about = "Check a .env file against remote secrets (exit 1 if keys are missing remotely)"
+    )]
     Check {
         #[arg(default_value = ".env")]
         file: String,
-        #[arg(short, long, help = "Space slug (defaults to .casier.toml)")]
-        space: Option<String>,
+        #[arg(short, long, help = "Project slug (defaults to .casier.toml)")]
+        project: Option<String>,
         #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
         env: Option<String>,
     },
@@ -78,8 +80,8 @@ enum PushTarget {
     )]
     Dokploy {
         compose_id: String,
-        #[arg(short, long, help = "Space slug (defaults to .casier.toml)")]
-        space: Option<String>,
+        #[arg(short, long, help = "Project slug (defaults to .casier.toml)")]
+        project: Option<String>,
         #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
         env: Option<String>,
     },
@@ -90,7 +92,7 @@ enum SyncAction {
     #[command(about = "Push a .env file to Casier")]
     Push {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(short, long, default_value = "dev")]
         env: String,
         #[arg(short, long, default_value = ".env")]
@@ -99,7 +101,7 @@ enum SyncAction {
     #[command(about = "Pull secrets from Casier to a .env file")]
     Pull {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(short, long, default_value = "dev")]
         env: String,
         #[arg(short, long, default_value = ".env")]
@@ -109,10 +111,10 @@ enum SyncAction {
 
 #[derive(Subcommand)]
 enum SecretsAction {
-    #[command(about = "List secrets for a space and environment")]
+    #[command(about = "List secrets for a project and environment")]
     List {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(short, long, default_value = "dev")]
         env: String,
         #[arg(long)]
@@ -121,7 +123,7 @@ enum SecretsAction {
     #[command(about = "Set a secret")]
     Set {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(short, long, default_value = "dev")]
         env: String,
         key: String,
@@ -130,7 +132,7 @@ enum SecretsAction {
     #[command(about = "Get a single secret value")]
     Get {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(short, long, default_value = "dev")]
         env: String,
         key: String,
@@ -138,7 +140,7 @@ enum SecretsAction {
     #[command(about = "Delete a secret")]
     Delete {
         #[arg(short, long)]
-        space: String,
+        project: String,
         #[arg(short, long, default_value = "dev")]
         env: String,
         key: String,
@@ -153,52 +155,56 @@ async fn main() -> ExitCode {
         Commands::Login => commands::login::run().await.map(|_| ExitCode::SUCCESS),
         Commands::Logout => commands::logout::run().map(|_| ExitCode::SUCCESS),
         Commands::Init => commands::init::run().await.map(|_| ExitCode::SUCCESS),
-        Commands::Diff { space, from, to } => commands::diff::run(&space, &from, &to)
+        Commands::Diff { project, from, to } => commands::diff::run(&project, &from, &to)
             .await
             .map(|_| ExitCode::SUCCESS),
         Commands::Sync { action } => match action {
-            SyncAction::Push { space, env, file } => commands::sync::push(&space, &env, &file)
+            SyncAction::Push { project, env, file } => commands::sync::push(&project, &env, &file)
                 .await
                 .map(|_| ExitCode::SUCCESS),
-            SyncAction::Pull { space, env, file } => commands::sync::pull(&space, &env, &file)
+            SyncAction::Pull { project, env, file } => commands::sync::pull(&project, &env, &file)
                 .await
                 .map(|_| ExitCode::SUCCESS),
         },
-        Commands::Spaces => commands::spaces::run().await.map(|_| ExitCode::SUCCESS),
+        Commands::Projects => commands::projects::run().await.map(|_| ExitCode::SUCCESS),
         Commands::Secrets { action } => match action {
-            SecretsAction::List { space, env, show } => commands::secrets::list(&space, &env, show)
-                .await
-                .map(|_| ExitCode::SUCCESS),
+            SecretsAction::List { project, env, show } => {
+                commands::secrets::list(&project, &env, show)
+                    .await
+                    .map(|_| ExitCode::SUCCESS)
+            }
             SecretsAction::Set {
-                space,
+                project,
                 env,
                 key,
                 value,
-            } => commands::secrets::set(&space, &env, &key, &value)
+            } => commands::secrets::set(&project, &env, &key, &value)
                 .await
                 .map(|_| ExitCode::SUCCESS),
-            SecretsAction::Get { space, env, key } => commands::secrets::get(&space, &env, &key)
-                .await
-                .map(|_| ExitCode::SUCCESS),
-            SecretsAction::Delete { space, env, key } => {
-                commands::secrets::delete(&space, &env, &key)
+            SecretsAction::Get { project, env, key } => {
+                commands::secrets::get(&project, &env, &key)
+                    .await
+                    .map(|_| ExitCode::SUCCESS)
+            }
+            SecretsAction::Delete { project, env, key } => {
+                commands::secrets::delete(&project, &env, &key)
                     .await
                     .map(|_| ExitCode::SUCCESS)
             }
         },
         Commands::Run {
-            space,
+            project,
             env,
             offline,
             command,
-        } => commands::run::run(space, env, offline, &command).await,
-        Commands::Check { file, space, env } => commands::check::run(&file, space, env).await,
+        } => commands::run::run(project, env, offline, &command).await,
+        Commands::Check { file, project, env } => commands::check::run(&file, project, env).await,
         Commands::Push { target } => match target {
             PushTarget::Dokploy {
                 compose_id,
-                space,
+                project,
                 env,
-            } => commands::push::dokploy(&compose_id, space, env)
+            } => commands::push::dokploy(&compose_id, project, env)
                 .await
                 .map(|_| ExitCode::SUCCESS),
         },

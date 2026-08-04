@@ -5,26 +5,26 @@ use std::process::{Command, ExitCode};
 use crate::api::ApiClient;
 use crate::auth;
 use crate::cache;
-use crate::config::{resolve_space_env, Config};
+use crate::config::{resolve_project_env, Config};
 
 pub async fn run(
-    space: Option<String>,
+    project: Option<String>,
     env: Option<String>,
     offline: bool,
     command: &[String],
 ) -> Result<ExitCode> {
     if command.is_empty() {
-        bail!("No command provided. Usage: casier run -s <space> -e <env> -- <command...>");
+        bail!("No command provided. Usage: casier run -s <project> -e <env> -- <command...>");
     }
 
-    let (space, env) = resolve_space_env(space, env)?;
+    let (project, env) = resolve_project_env(project, env)?;
 
     let secrets = if offline {
-        cache::load(&space, &env)
-            .with_context(|| format!("no cached secrets for {}/{}", space, env))?
+        cache::load(&project, &env)
+            .with_context(|| format!("no cached secrets for {}/{}", project, env))?
             .secrets
     } else {
-        fetch_or_cached(&space, &env).await?
+        fetch_or_cached(&project, &env).await?
     };
 
     let mut cmd = Command::new(&command[0]);
@@ -37,17 +37,17 @@ pub async fn run(
     let status = cmd.status()?;
 
     Ok(ExitCode::from(
-        status.code().unwrap_or(1).min(255).max(0) as u8,
+        status.code().unwrap_or(1).min(255).max(0) as u8
     ))
 }
 
-async fn fetch_or_cached(space: &str, env: &str) -> Result<BTreeMap<String, String>> {
-    match fetch(space, env).await {
+async fn fetch_or_cached(project: &str, env: &str) -> Result<BTreeMap<String, String>> {
+    match fetch(project, env).await {
         Ok(secrets) => {
-            cache::store(space, env, &secrets);
+            cache::store(project, env, &secrets);
             Ok(secrets)
         }
-        Err(fetch_err) => match cache::load(space, env) {
+        Err(fetch_err) => match cache::load(project, env) {
             Ok(cached) => {
                 eprintln!(
                     "casier: server unreachable, using cached secrets from {}",
@@ -57,13 +57,13 @@ async fn fetch_or_cached(space: &str, env: &str) -> Result<BTreeMap<String, Stri
             }
             Err(_) => Err(fetch_err.context(format!(
                 "server unreachable and no cached secrets for {}/{}",
-                space, env
+                project, env
             ))),
         },
     }
 }
 
-async fn fetch(space: &str, env: &str) -> Result<BTreeMap<String, String>> {
+async fn fetch(project: &str, env: &str) -> Result<BTreeMap<String, String>> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
@@ -71,6 +71,6 @@ async fn fetch(space: &str, env: &str) -> Result<BTreeMap<String, String>> {
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let secrets = client.list_secrets(space, env).await?;
+    let secrets = client.list_secrets(project, env).await?;
     Ok(cache::to_map(&secrets))
 }

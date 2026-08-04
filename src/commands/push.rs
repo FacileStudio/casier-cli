@@ -3,10 +3,10 @@ use anyhow::{bail, Context, Result};
 use crate::api::ApiClient;
 use crate::auth;
 use crate::cache;
-use crate::config::{resolve_space_env, Config};
+use crate::config::{resolve_project_env, Config};
 
-pub async fn dokploy(compose_id: &str, space: Option<String>, env: Option<String>) -> Result<()> {
-    let (space, env) = resolve_space_env(space, env)?;
+pub async fn dokploy(compose_id: &str, project: Option<String>, env: Option<String>) -> Result<()> {
+    let (project, env) = resolve_project_env(project, env)?;
 
     let dokploy_url = std::env::var("DOKPLOY_URL")
         .context("DOKPLOY_URL is not set (e.g. https://gare.facile.studio)")?;
@@ -19,8 +19,8 @@ pub async fn dokploy(compose_id: &str, space: Option<String>, env: Option<String
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let secrets = client.list_secrets(&space, &env).await?;
-    cache::store(&space, &env, &cache::to_map(&secrets));
+    let secrets = client.list_secrets(&project, &env).await?;
+    cache::store(&project, &env, &cache::to_map(&secrets));
 
     let env_content = secrets
         .iter()

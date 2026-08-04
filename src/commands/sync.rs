@@ -7,7 +7,7 @@ use crate::cache;
 use crate::config::Config;
 use crate::envfile;
 
-pub async fn push(space: &str, env: &str, file: &str) -> Result<()> {
+pub async fn push(project: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
@@ -19,7 +19,7 @@ pub async fn push(space: &str, env: &str, file: &str) -> Result<()> {
         .with_context(|| format!("failed to read {}", path.display()))?;
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let resp = client.import_env(space, env, &content).await?;
+    let resp = client.import_env(project, env, &content).await?;
 
     println!(
         "Imported: {} created, {} updated, {} skipped",
@@ -28,7 +28,7 @@ pub async fn push(space: &str, env: &str, file: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn pull(space: &str, env: &str, file: &str) -> Result<()> {
+pub async fn pull(project: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
@@ -36,9 +36,9 @@ pub async fn pull(space: &str, env: &str, file: &str) -> Result<()> {
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let resp = client.export_env(space, env).await?;
+    let resp = client.export_env(project, env).await?;
 
-    cache::store(space, env, &envfile::parse(&resp.content));
+    cache::store(project, env, &envfile::parse(&resp.content));
 
     let path = PathBuf::from(file);
     std::fs::write(&path, &resp.content)

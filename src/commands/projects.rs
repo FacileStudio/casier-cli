@@ -12,22 +12,22 @@ pub async fn run() -> Result<()> {
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let spaces = client.list_spaces().await?;
+    let projects = client.list_projects().await?;
 
-    if spaces.is_empty() {
-        println!("No spaces found.");
+    if projects.is_empty() {
+        println!("No projects found.");
         return Ok(());
     }
 
-    let name_width = spaces.iter().map(|s| s.name.len()).max().unwrap_or(0);
-    let slug_width = spaces.iter().map(|s| s.slug.len()).max().unwrap_or(0);
+    let name_width = projects.iter().map(|s| s.name.len()).max().unwrap_or(0);
+    let slug_width = projects.iter().map(|s| s.slug.len()).max().unwrap_or(0);
 
     println!(
         "{:<name_width$}  {:<slug_width$}  {}",
         "NAME", "SLUG", "DESCRIPTION"
     );
 
-    for s in &spaces {
+    for s in &projects {
         println!(
             "{:<name_width$}  {:<slug_width$}  {}",
             s.name, s.slug, s.description

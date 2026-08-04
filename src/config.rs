@@ -49,7 +49,7 @@ pub struct ProjectConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct ProjectSection {
-    pub space: String,
+    pub slug: String,
     #[serde(default = "default_env")]
     pub environment: String,
 }
@@ -69,13 +69,16 @@ impl ProjectConfig {
     }
 }
 
-pub fn resolve_space_env(space: Option<String>, env: Option<String>) -> Result<(String, String)> {
-    let project = ProjectConfig::load();
-    let space = space
-        .or_else(|| project.as_ref().map(|p| p.project.space.clone()))
-        .context("no space specified: pass --space or run `casier init`")?;
+pub fn resolve_project_env(
+    project: Option<String>,
+    env: Option<String>,
+) -> Result<(String, String)> {
+    let local = ProjectConfig::load();
+    let project = project
+        .or_else(|| local.as_ref().map(|c| c.project.slug.clone()))
+        .context("no project specified: pass --project or run `casier init`")?;
     let env = env
-        .or_else(|| project.as_ref().map(|p| p.project.environment.clone()))
+        .or_else(|| local.as_ref().map(|c| c.project.environment.clone()))
         .unwrap_or_else(default_env);
-    Ok((space, env))
+    Ok((project, env))
 }

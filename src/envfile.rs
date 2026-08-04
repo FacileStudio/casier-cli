@@ -41,7 +41,7 @@ QUOTED="hello world"
 SINGLE='single'
 EMPTY=
 NOEQUALS
-  SPACED = padded
+  PROJECTD = padded
 "#;
         let map = parse(content);
         assert_eq!(map.get("FOO").unwrap(), "bar");
@@ -49,7 +49,7 @@ NOEQUALS
         assert_eq!(map.get("QUOTED").unwrap(), "hello world");
         assert_eq!(map.get("SINGLE").unwrap(), "single");
         assert_eq!(map.get("EMPTY").unwrap(), "");
-        assert_eq!(map.get("SPACED").unwrap(), "padded");
+        assert_eq!(map.get("PROJECTD").unwrap(), "padded");
         assert!(!map.contains_key("NOEQUALS"));
         assert_eq!(map.len(), 6);
     }
