@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "clef", about = "Secrets manager CLI for Clef")]
+#[command(name = "casier", about = "Secrets manager CLI for Casier")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -15,11 +15,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Authenticate with the Clef server")]
+    #[command(about = "Authenticate with the Casier server")]
     Login,
     #[command(about = "Clear stored credentials")]
     Logout,
-    #[command(about = "Initialize a .clef.toml for the current project")]
+    #[command(about = "Initialize a .casier.toml for the current project")]
     Init,
     #[command(about = "List spaces you belong to")]
     Spaces,
@@ -55,7 +55,7 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum SyncAction {
-    #[command(about = "Push a .env file to Clef")]
+    #[command(about = "Push a .env file to Casier")]
     Push {
         #[arg(short, long)]
         space: String,
@@ -64,7 +64,7 @@ enum SyncAction {
         #[arg(short, long, default_value = ".env")]
         file: String,
     },
-    #[command(about = "Pull secrets from Clef to a .env file")]
+    #[command(about = "Pull secrets from Casier to a .env file")]
     Pull {
         #[arg(short, long)]
         space: String,

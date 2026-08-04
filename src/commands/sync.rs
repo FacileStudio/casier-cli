@@ -9,7 +9,7 @@ pub async fn push(space: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `clef login` first.");
+        bail!("Not logged in. Run `casier login` first.");
     };
 
     let path = PathBuf::from(file);
@@ -30,7 +30,7 @@ pub async fn pull(space: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `clef login` first.");
+        bail!("Not logged in. Run `casier login` first.");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));

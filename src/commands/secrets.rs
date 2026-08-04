@@ -6,7 +6,7 @@ use crate::config::Config;
 
 fn authed_client(config: &Config, token: Option<String>) -> Result<ApiClient> {
     let Some(token) = token else {
-        bail!("Not logged in. Run `clef login` first.");
+        bail!("Not logged in. Run `casier login` first.");
     };
     Ok(ApiClient::new(&config.server_url, Some(token)))
 }

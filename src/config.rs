@@ -15,7 +15,7 @@ fn default_server_url() -> String {
 impl Config {
     pub fn dir() -> Result<PathBuf> {
         let config_dir = dirs::config_dir().context("cannot determine config directory")?;
-        Ok(config_dir.join("clef"))
+        Ok(config_dir.join("casier"))
     }
 
     pub fn path() -> Result<PathBuf> {
@@ -23,7 +23,7 @@ impl Config {
     }
 
     pub fn load() -> Result<Self> {
-        if let Ok(url) = std::env::var("CLEF_SERVER_URL") {
+        if let Ok(url) = std::env::var("CASIER_SERVER_URL") {
             return Ok(Config { server_url: url });
         }
 
@@ -60,7 +60,7 @@ fn default_env() -> String {
 
 impl ProjectConfig {
     pub fn load() -> Option<Self> {
-        let path = std::path::PathBuf::from(".clef.toml");
+        let path = std::path::PathBuf::from(".casier.toml");
         if !path.exists() {
             return None;
         }

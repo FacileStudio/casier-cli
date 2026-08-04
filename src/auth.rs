@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use keyring::Entry;
 
-const SERVICE: &str = "clef";
+const SERVICE: &str = "casier";
 
 pub fn store_token(server_url: &str, token: &str) -> Result<()> {
     let entry = Entry::new(SERVICE, server_url)?;
