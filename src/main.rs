@@ -1,7 +1,9 @@
 mod api;
 mod auth;
+mod cache;
 mod commands;
 mod config;
+mod envfile;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
@@ -44,12 +46,42 @@ enum Commands {
     },
     #[command(about = "Inject secrets as env vars and run a command")]
     Run {
-        #[arg(short, long)]
-        space: String,
-        #[arg(short, long, default_value = "dev")]
-        env: String,
+        #[arg(short, long, help = "Space slug (defaults to .casier.toml)")]
+        space: Option<String>,
+        #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
+        env: Option<String>,
+        #[arg(long, help = "Use cached secrets without contacting the server")]
+        offline: bool,
         #[arg(last = true)]
         command: Vec<String>,
+    },
+    #[command(about = "Check a .env file against remote secrets (exit 1 if keys are missing remotely)")]
+    Check {
+        #[arg(default_value = ".env")]
+        file: String,
+        #[arg(short, long, help = "Space slug (defaults to .casier.toml)")]
+        space: Option<String>,
+        #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
+        env: Option<String>,
+    },
+    #[command(about = "Push secrets to an external target")]
+    Push {
+        #[command(subcommand)]
+        target: PushTarget,
+    },
+}
+
+#[derive(Subcommand)]
+enum PushTarget {
+    #[command(
+        about = "Push secrets to a Dokploy compose service (needs DOKPLOY_URL and DOKPLOY_API_KEY)"
+    )]
+    Dokploy {
+        compose_id: String,
+        #[arg(short, long, help = "Space slug (defaults to .casier.toml)")]
+        space: Option<String>,
+        #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
+        env: Option<String>,
     },
 }
 
@@ -157,8 +189,19 @@ async fn main() -> ExitCode {
         Commands::Run {
             space,
             env,
+            offline,
             command,
-        } => commands::run::run(&space, &env, &command).await,
+        } => commands::run::run(space, env, offline, &command).await,
+        Commands::Check { file, space, env } => commands::check::run(&file, space, env).await,
+        Commands::Push { target } => match target {
+            PushTarget::Dokploy {
+                compose_id,
+                space,
+                env,
+            } => commands::push::dokploy(&compose_id, space, env)
+                .await
+                .map(|_| ExitCode::SUCCESS),
+        },
     };
 
     match result {

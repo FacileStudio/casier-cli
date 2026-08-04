@@ -68,3 +68,14 @@ impl ProjectConfig {
         toml::from_str(&contents).ok()
     }
 }
+
+pub fn resolve_space_env(space: Option<String>, env: Option<String>) -> Result<(String, String)> {
+    let project = ProjectConfig::load();
+    let space = space
+        .or_else(|| project.as_ref().map(|p| p.project.space.clone()))
+        .context("no space specified: pass --space or run `casier init`")?;
+    let env = env
+        .or_else(|| project.as_ref().map(|p| p.project.environment.clone()))
+        .unwrap_or_else(default_env);
+    Ok((space, env))
+}

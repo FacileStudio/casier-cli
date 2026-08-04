@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use crate::api::ApiClient;
 use crate::auth;
+use crate::cache;
 use crate::config::Config;
 
 pub async fn run(space: &str, env_a: &str, env_b: &str) -> Result<()> {
@@ -17,6 +18,9 @@ pub async fn run(space: &str, env_a: &str, env_b: &str) -> Result<()> {
         client.list_secrets(space, env_a),
         client.list_secrets(space, env_b),
     )?;
+
+    cache::store(space, env_a, &cache::to_map(&secrets_a));
+    cache::store(space, env_b, &cache::to_map(&secrets_b));
 
     let map_a: BTreeMap<&str, &str> = secrets_a.iter().map(|s| (s.key.as_str(), s.value.as_str())).collect();
     let map_b: BTreeMap<&str, &str> = secrets_b.iter().map(|s| (s.key.as_str(), s.value.as_str())).collect();

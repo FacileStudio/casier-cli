@@ -3,7 +3,9 @@ use std::path::PathBuf;
 
 use crate::api::ApiClient;
 use crate::auth;
+use crate::cache;
 use crate::config::Config;
+use crate::envfile;
 
 pub async fn push(space: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
@@ -35,6 +37,8 @@ pub async fn pull(space: &str, env: &str, file: &str) -> Result<()> {
 
     let client = ApiClient::new(&config.server_url, Some(token));
     let resp = client.export_env(space, env).await?;
+
+    cache::store(space, env, &envfile::parse(&resp.content));
 
     let path = PathBuf::from(file);
     std::fs::write(&path, &resp.content)
