@@ -2,6 +2,8 @@
 name = "casier"
 version = "0.1.0"
 edition = "2021"
+description = "Terminal client for Casier, the Facile self-hosted secrets manager"
+repository = "https://github.com/FacileStudio/casier-cli"
 
 [dependencies]
 anyhow = "1"
