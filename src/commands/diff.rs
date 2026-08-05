@@ -15,8 +15,8 @@ pub async fn run(project: &str, env_a: &str, env_b: &str) -> Result<()> {
 
     let client = ApiClient::new(&config.server_url, Some(token));
     let (secrets_a, secrets_b) = tokio::try_join!(
-        client.list_secrets(project, env_a),
-        client.list_secrets(project, env_b),
+        client.reveal_secrets(project, env_a),
+        client.reveal_secrets(project, env_b),
     )?;
 
     cache::store(project, env_a, &cache::to_map(&secrets_a));

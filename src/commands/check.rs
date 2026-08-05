@@ -22,7 +22,7 @@ pub async fn run(file: &str, project: Option<String>, env: Option<String>) -> Re
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let secrets = client.list_secrets(&project, &env).await?;
+    let secrets = client.reveal_secrets(&project, &env).await?;
     cache::store(&project, &env, &cache::to_map(&secrets));
 
     let remote: BTreeSet<String> = secrets.into_iter().map(|s| s.key).collect();

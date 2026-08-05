@@ -38,6 +38,18 @@ pub async fn pull(project: &str, env: &str, file: &str) -> Result<()> {
     let client = ApiClient::new(&config.server_url, Some(token));
     let resp = client.export_env(project, env).await?;
 
+    // Writing an empty file is destructive and indistinguishable from success,
+    // so an empty export stops here rather than truncating whatever the target
+    // already held.
+    if resp.content.trim().is_empty() {
+        bail!(
+            "{}/{} exported nothing — refusing to overwrite {} with an empty file",
+            project,
+            env,
+            file
+        );
+    }
+
     cache::store(project, env, &envfile::parse(&resp.content));
 
     let path = PathBuf::from(file);

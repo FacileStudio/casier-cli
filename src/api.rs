@@ -34,12 +34,77 @@ pub struct Project {
     pub description: String,
 }
 
+/// A secret as the list route returns it. `value` is absent unless the request
+/// asked to reveal it, so it is an `Option` here rather than a `String`: a
+/// missing value must never silently decode as an empty one.
 #[derive(Deserialize)]
 pub struct Secret {
     pub key: String,
-    pub value: String,
+    #[serde(default)]
+    pub value: Option<String>,
     #[serde(default)]
     pub version: i32,
+}
+
+/// A secret that is known to carry its value. Every command that injects,
+/// writes or compares values takes this type, so the "did the server actually
+/// send values?" question is answered once, at the boundary, instead of at each
+/// call site.
+#[derive(Debug)]
+pub struct RevealedSecret {
+    pub key: String,
+    pub value: String,
+    pub version: i32,
+}
+
+/// The server answered a revealing read with metadata alone.
+///
+/// It is a distinct type, not a plain message, because it must not be mistaken
+/// for a server that could merely not be reached: falling back to a cached copy
+/// is right for that and wrong for this.
+#[derive(Debug)]
+pub struct MissingValues {
+    pub missing: usize,
+    pub total: usize,
+}
+
+impl std::fmt::Display for MissingValues {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "the server returned {} of {} secrets without values — this casier CLI is older than the server it is talking to. Reinstall it, then retry.",
+            self.missing, self.total
+        )
+    }
+}
+
+impl std::error::Error for MissingValues {}
+
+/// Converts a list that was requested with `reveal=true`, failing loudly if the
+/// server answered with metadata alone.
+///
+/// That happens when this binary is older than the server it talks to: it does
+/// not know to ask for values, and every value comes back absent. Injecting
+/// that into a child process, an `.env` file or a deployment would produce an
+/// environment with nothing in it and no error — the command runs, appears to
+/// work, and connects to nothing.
+fn into_revealed(secrets: Vec<Secret>) -> Result<Vec<RevealedSecret>> {
+    let missing = secrets.iter().filter(|s| s.value.is_none()).count();
+    if missing > 0 {
+        return Err(MissingValues {
+            missing,
+            total: secrets.len(),
+        }
+        .into());
+    }
+    Ok(secrets
+        .into_iter()
+        .map(|s| RevealedSecret {
+            key: s.key,
+            value: s.value.unwrap_or_default(),
+            version: s.version,
+        })
+        .collect())
 }
 
 #[derive(Deserialize)]
@@ -146,8 +211,25 @@ impl ApiClient {
         Ok(body.projects.unwrap_or_default())
     }
 
+    /// Lists keys, versions and tags without values. Use this whenever the
+    /// command only needs to know which secrets exist.
     pub async fn list_secrets(&self, project: &str, env: &str) -> Result<Vec<Secret>> {
-        let path = format!("/projects/{}/environments/{}/secrets", project, env);
+        self.fetch_secrets(project, env, false).await
+    }
+
+    /// Lists secrets with their values, which the server audits apart from a
+    /// metadata listing and records by count.
+    pub async fn reveal_secrets(&self, project: &str, env: &str) -> Result<Vec<RevealedSecret>> {
+        into_revealed(self.fetch_secrets(project, env, true).await?)
+    }
+
+    async fn fetch_secrets(&self, project: &str, env: &str, reveal: bool) -> Result<Vec<Secret>> {
+        let path = format!(
+            "/projects/{}/environments/{}/secrets{}",
+            project,
+            env,
+            if reveal { "?reveal=true" } else { "" }
+        );
         let resp = self
             .request(reqwest::Method::GET, &path)
             .send()
@@ -182,11 +264,29 @@ impl ApiClient {
         Ok(resp.json().await?)
     }
 
-    pub async fn get_secret(&self, project: &str, env: &str, key: &str) -> Result<Secret> {
-        let secrets = self.list_secrets(project, env).await?;
-        secrets
-            .into_iter()
-            .find(|s| s.key == key)
+    /// Reads one secret through the per-key reveal route, which the server
+    /// audits by key rather than folding into a bulk read.
+    pub async fn reveal_secret(
+        &self,
+        project: &str,
+        env: &str,
+        key: &str,
+    ) -> Result<RevealedSecret> {
+        let path = format!(
+            "/projects/{}/environments/{}/secrets/{}/reveal",
+            project, env, key
+        );
+        let resp = self
+            .request(reqwest::Method::GET, &path)
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            bail!("GET {} returned {}", path, resp.status());
+        }
+        let secret: Secret = resp.json().await?;
+        into_revealed(vec![secret])?
+            .pop()
             .context(format!("secret '{}' not found", key))
     }
 
@@ -237,5 +337,63 @@ impl ApiClient {
             bail!("DELETE {} failed ({}): {}", path, status, body);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(body: &str) -> Vec<Secret> {
+        let parsed: SecretsResponse = serde_json::from_str(body).unwrap();
+        parsed.secrets.unwrap_or_default()
+    }
+
+    #[test]
+    fn revealed_list_keeps_its_values() {
+        let secrets = into_revealed(parse(
+            r#"{"secrets":[{"key":"A","value":"1","version":3}]}"#,
+        ))
+        .unwrap();
+        assert_eq!(secrets.len(), 1);
+        assert_eq!(secrets[0].key, "A");
+        assert_eq!(secrets[0].value, "1");
+        assert_eq!(secrets[0].version, 3);
+    }
+
+    #[test]
+    fn an_empty_value_is_a_real_value() {
+        let secrets = into_revealed(parse(r#"{"secrets":[{"key":"A","value":""}]}"#)).unwrap();
+        assert_eq!(secrets[0].value, "");
+    }
+
+    #[test]
+    fn an_empty_environment_is_not_an_error() {
+        assert!(into_revealed(parse(r#"{"secrets":[]}"#))
+            .unwrap()
+            .is_empty());
+    }
+
+    /// A server newer than this binary answers a plain list with metadata only.
+    /// Refusing here is the whole point: the alternative is a child process
+    /// launched with an empty environment and a zero exit code.
+    #[test]
+    fn metadata_without_values_is_refused() {
+        let err = into_revealed(parse(
+            r#"{"secrets":[{"key":"A","version":1},{"key":"B","version":1}]}"#,
+        ))
+        .unwrap_err();
+        let message = format!("{}", err);
+        assert!(message.contains("without values"), "{}", message);
+        assert!(message.contains("older than the server"), "{}", message);
+    }
+
+    #[test]
+    fn a_partially_valueless_list_is_refused() {
+        let err = into_revealed(parse(
+            r#"{"secrets":[{"key":"A","value":"1"},{"key":"B"}]}"#,
+        ))
+        .unwrap_err();
+        assert!(format!("{}", err).contains("1 of 2"));
     }
 }

@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use std::collections::BTreeMap;
 use std::process::{Command, ExitCode};
 
-use crate::api::ApiClient;
+use crate::api::{ApiClient, MissingValues};
 use crate::auth;
 use crate::cache;
 use crate::config::{resolve_project_env, Config};
@@ -47,6 +47,10 @@ async fn fetch_or_cached(project: &str, env: &str) -> Result<BTreeMap<String, St
             cache::store(project, env, &secrets);
             Ok(secrets)
         }
+        // A server that answered without values was reached perfectly well, and
+        // quietly running the command against a stale cache would hide the very
+        // problem the guard exists to surface.
+        Err(fetch_err) if fetch_err.downcast_ref::<MissingValues>().is_some() => Err(fetch_err),
         Err(fetch_err) => match cache::load(project, env) {
             Ok(cached) => {
                 eprintln!(
@@ -71,6 +75,6 @@ async fn fetch(project: &str, env: &str) -> Result<BTreeMap<String, String>> {
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let secrets = client.list_secrets(project, env).await?;
+    let secrets = client.reveal_secrets(project, env).await?;
     Ok(cache::to_map(&secrets))
 }

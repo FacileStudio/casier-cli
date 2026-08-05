@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use crate::api::Secret;
+use crate::api::RevealedSecret;
 use crate::config::Config;
 
 #[derive(Serialize, Deserialize)]
@@ -12,7 +12,10 @@ pub struct CachedSecrets {
     pub secrets: BTreeMap<String, String>,
 }
 
-pub fn to_map(secrets: &[Secret]) -> BTreeMap<String, String> {
+/// Only a revealed list can be cached. `casier run --offline` reads this back
+/// verbatim, so a cache built from a valueless response would keep injecting an
+/// empty environment long after the response that caused it was forgotten.
+pub fn to_map(secrets: &[RevealedSecret]) -> BTreeMap<String, String> {
     secrets
         .iter()
         .map(|s| (s.key.clone(), s.value.clone()))

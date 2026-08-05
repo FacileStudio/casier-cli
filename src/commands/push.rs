@@ -19,7 +19,15 @@ pub async fn dokploy(compose_id: &str, project: Option<String>, env: Option<Stri
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
-    let secrets = client.list_secrets(&project, &env).await?;
+    let secrets = client.reveal_secrets(&project, &env).await?;
+    if secrets.is_empty() {
+        bail!(
+            "{}/{} has no secrets to push — refusing to overwrite the Dokploy environment of compose {} with an empty block",
+            project,
+            env,
+            compose_id
+        );
+    }
     cache::store(&project, &env, &cache::to_map(&secrets));
 
     let env_content = secrets
