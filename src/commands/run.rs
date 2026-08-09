@@ -53,10 +53,10 @@ async fn fetch_or_cached(project: &str, env: &str) -> Result<BTreeMap<String, St
         Err(fetch_err) if fetch_err.downcast_ref::<MissingValues>().is_some() => Err(fetch_err),
         Err(fetch_err) => match cache::load(project, env) {
             Ok(cached) => {
-                eprintln!(
-                    "casier: server unreachable, using cached secrets from {}",
+                crate::ui::warn(&format!(
+                    "server unreachable, using cached secrets from {}",
                     cached.fetched_at
-                );
+                ));
                 Ok(cached.secrets)
             }
             Err(_) => Err(fetch_err.context(format!(
@@ -71,7 +71,7 @@ async fn fetch(project: &str, env: &str) -> Result<BTreeMap<String, String>> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));

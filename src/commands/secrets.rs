@@ -6,7 +6,7 @@ use crate::config::Config;
 
 fn authed_client(config: &Config, token: Option<String>) -> Result<ApiClient> {
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
     Ok(ApiClient::new(&config.server_url, Some(token)))
 }
@@ -37,7 +37,7 @@ pub async fn list(project: &str, env: &str, show: bool) -> Result<()> {
     };
 
     if rows.is_empty() {
-        println!("No secrets found.");
+        crate::ui::step("No secrets");
         return Ok(());
     }
 
@@ -60,7 +60,7 @@ pub async fn set(project: &str, env: &str, key: &str, value: &str) -> Result<()>
     let config = Config::load()?;
     let client = authed_client(&config, auth::get_token(&config.server_url)?)?;
     let secret = client.set_secret(project, env, key, value).await?;
-    println!("Set {} (version {})", secret.key, secret.version);
+    crate::ui::success(&format!("Set {} (version {})", secret.key, secret.version));
     Ok(())
 }
 
@@ -76,6 +76,6 @@ pub async fn delete(project: &str, env: &str, key: &str) -> Result<()> {
     let config = Config::load()?;
     let client = authed_client(&config, auth::get_token(&config.server_url)?)?;
     client.delete_secret(project, env, key).await?;
-    println!("Deleted {}", key);
+    crate::ui::success(&format!("Deleted {}", key));
     Ok(())
 }

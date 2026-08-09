@@ -8,7 +8,7 @@ description: >
 # casier — Facile secrets manager
 
 Binary: `casier`
-Config: `<config_dir>/casier/config.toml` (server URL) + `.casier.toml` (per-project defaults)
+Config: `<config_dir>/casier/config.toml` (server URL) + `casier.yml` (per-project defaults)
 Token: OS keychain, or `CASIER_TOKEN` in CI
 
 ## When to apply
@@ -24,7 +24,7 @@ Triggers: "secret", "env var", ".env", "environment variable", "API key", "casie
 ```
 casier login [--server <url>] [--no-browser]   Authenticate (opens a browser under SSO)
 casier logout                                  Clear the stored token
-casier init                                    Write .casier.toml in the current project
+casier init                                    Write casier.yml in the current project
 casier projects                                List projects you belong to
 ```
 
@@ -51,7 +51,7 @@ casier push dokploy <composeId> [-p <project>] [-e <env>]
 ```
 
 ## Rules
-- `-p`/`-e` default to `.casier.toml`, then `dev` — omit them inside a configured project
+- `-p`/`-e` default to `casier.yml` (or a legacy `.casier.toml`), then `dev` — omit them inside a configured project
 - Prefer `casier run -- <cmd>` over writing a `.env`; it never touches the disk
 - `--show` and `get` reveal plaintext and are audited server-side as such — do not use them to
   fill a variable you could have injected with `run`

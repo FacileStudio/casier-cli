@@ -5,13 +5,21 @@ mod commands;
 mod config;
 mod envfile;
 mod loopback;
+mod ui;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "casier", about = "Secrets manager CLI for Casier")]
+#[command(
+    name = "casier",
+    version,
+    about = "Terminal client for Casier secrets management"
+)]
 struct Cli {
+    #[arg(long, global = true, help = "Disable colored output")]
+    no_color: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -27,7 +35,7 @@ enum Commands {
     },
     #[command(about = "Clear stored credentials")]
     Logout,
-    #[command(about = "Initialize a .casier.toml for the current project")]
+    #[command(about = "Initialize a casier.yml for the current project")]
     Init,
     #[command(about = "List projects you belong to")]
     Projects,
@@ -52,9 +60,9 @@ enum Commands {
     },
     #[command(about = "Inject secrets as env vars and run a command")]
     Run {
-        #[arg(short, long, help = "Project slug (defaults to .casier.toml)")]
+        #[arg(short, long, help = "Project slug (defaults to casier.yml)")]
         project: Option<String>,
-        #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
+        #[arg(short, long, help = "Environment (defaults to casier.yml, then dev)")]
         env: Option<String>,
         #[arg(long, help = "Use cached secrets without contacting the server")]
         offline: bool,
@@ -67,9 +75,9 @@ enum Commands {
     Check {
         #[arg(default_value = ".env")]
         file: String,
-        #[arg(short, long, help = "Project slug (defaults to .casier.toml)")]
+        #[arg(short, long, help = "Project slug (defaults to casier.yml)")]
         project: Option<String>,
-        #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
+        #[arg(short, long, help = "Environment (defaults to casier.yml, then dev)")]
         env: Option<String>,
     },
     #[command(about = "Push secrets to an external target")]
@@ -86,9 +94,9 @@ enum PushTarget {
     )]
     Dokploy {
         compose_id: String,
-        #[arg(short, long, help = "Project slug (defaults to .casier.toml)")]
+        #[arg(short, long, help = "Project slug (defaults to casier.yml)")]
         project: Option<String>,
-        #[arg(short, long, help = "Environment (defaults to .casier.toml, then dev)")]
+        #[arg(short, long, help = "Environment (defaults to casier.yml, then dev)")]
         env: Option<String>,
     },
 }
@@ -156,6 +164,9 @@ enum SecretsAction {
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
+    if cli.no_color {
+        ui::disable_color();
+    }
 
     let result = match cli.command {
         Commands::Login { server, no_browser } => commands::login::run(server, no_browser)
@@ -221,7 +232,7 @@ async fn main() -> ExitCode {
     match result {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("error: {:#}", e);
+            ui::error(&format!("{e:#}"));
             ExitCode::FAILURE
         }
     }

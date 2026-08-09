@@ -11,7 +11,7 @@ pub async fn push(project: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let path = PathBuf::from(file);
@@ -21,10 +21,10 @@ pub async fn push(project: &str, env: &str, file: &str) -> Result<()> {
     let client = ApiClient::new(&config.server_url, Some(token));
     let resp = client.import_env(project, env, &content).await?;
 
-    println!(
-        "Imported: {} created, {} updated, {} skipped",
+    crate::ui::success(&format!(
+        "Imported {} created, {} updated, {} skipped",
         resp.created, resp.updated, resp.skipped
-    );
+    ));
     Ok(())
 }
 
@@ -32,7 +32,7 @@ pub async fn pull(project: &str, env: &str, file: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
@@ -57,6 +57,10 @@ pub async fn pull(project: &str, env: &str, file: &str) -> Result<()> {
         .with_context(|| format!("failed to write {}", path.display()))?;
 
     let line_count = resp.content.lines().count();
-    println!("Pulled {} secrets to {}", line_count, path.display());
+    crate::ui::success(&format!(
+        "Pulled {} secrets to {}",
+        line_count,
+        path.display()
+    ));
     Ok(())
 }

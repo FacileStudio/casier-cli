@@ -13,7 +13,7 @@ have to land in both.
 - Language: Rust (edition 2021), async on Tokio
 - HTTP: reqwest (JSON)
 - CLI parsing: clap (derive)
-- Config: TOML via `toml` + serde
+- Config: the machine config is TOML (`toml`); the per-repo `casier.yml` is YAML (`serde_norway`), with `.casier.toml` still read
 - Token storage: `keyring` (OS keychain)
 
 ## Commands
@@ -33,7 +33,7 @@ src/
   main.rs        clap definition and subcommand dispatch
   api.rs         Casier REST client, Secret / RevealedSecret / MissingValues
   auth.rs        Keychain token storage, CASIER_TOKEN override
-  config.rs      <config_dir>/casier/config.toml, .casier.toml, project/env resolution
+  config.rs      <config_dir>/casier/config.toml, casier.yml, project/env resolution
   cache.rs       Offline secret cache backing `run --offline`
   envfile.rs     .env parsing and serialization
   loopback.rs    Ephemeral 127.0.0.1 listener for the SSO login round trip

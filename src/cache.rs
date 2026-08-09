@@ -33,7 +33,7 @@ fn cache_file(dir: &Path, project: &str, env: &str) -> PathBuf {
 pub fn store(project: &str, env: &str, secrets: &BTreeMap<String, String>) {
     let result = cache_dir().and_then(|dir| write_to(&dir, project, env, secrets));
     if let Err(e) = result {
-        eprintln!("casier: failed to write cache: {:#}", e);
+        crate::ui::warn(&format!("failed to write cache: {e:#}"));
     }
 }
 

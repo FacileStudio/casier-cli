@@ -6,18 +6,20 @@ use crate::api::ApiClient;
 use crate::auth;
 use crate::config::Config;
 
-const CASIER_TOML: &str = ".casier.toml";
+use crate::config::PROJECT_CONFIG_NAMES;
 
 pub async fn run() -> Result<()> {
-    let target = PathBuf::from(CASIER_TOML);
-    if target.exists() {
-        bail!("{} already exists in this directory", CASIER_TOML);
+    let target = PathBuf::from(PROJECT_CONFIG_NAMES[0]);
+    for existing in PROJECT_CONFIG_NAMES {
+        if PathBuf::from(existing).exists() {
+            bail!("{} already exists in this directory", existing);
+        }
     }
 
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
@@ -50,19 +52,16 @@ pub async fn run() -> Result<()> {
     let env = if env.is_empty() { "dev" } else { env };
 
     let content = format!(
-        r#"[project]
-slug = "{}"
-environment = "{}"
-"#,
+        "project:\n  slug: {}\n  environment: {}\n",
         project.slug, env
     );
 
-    std::fs::write(&target, &content)
-        .with_context(|| format!("failed to write {}", CASIER_TOML))?;
+    let name = PROJECT_CONFIG_NAMES[0];
+    std::fs::write(&target, &content).with_context(|| format!("failed to write {}", name))?;
 
-    println!(
+    crate::ui::success(&format!(
         "Created {} (project={}, env={})",
-        CASIER_TOML, project.slug, env
-    );
+        name, project.slug, env
+    ));
     Ok(())
 }

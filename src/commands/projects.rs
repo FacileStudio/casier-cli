@@ -8,14 +8,14 @@ pub async fn run() -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
     let projects = client.list_projects().await?;
 
     if projects.is_empty() {
-        println!("No projects found.");
+        crate::ui::step("No projects");
         return Ok(());
     }
 

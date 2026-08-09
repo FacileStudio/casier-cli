@@ -34,7 +34,7 @@ pub async fn run(server: Option<String>, no_browser: bool) -> Result<()> {
     .save()?;
 
     let me = ApiClient::new(&server_url, Some(token)).me().await?;
-    println!("Logged in as {} at {}", me.email, server_url);
+    crate::ui::success(&format!("Logged in as {} at {}", me.email, server_url));
     Ok(())
 }
 

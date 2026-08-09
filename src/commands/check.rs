@@ -18,7 +18,7 @@ pub async fn run(file: &str, project: Option<String>, env: Option<String>) -> Re
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
@@ -29,7 +29,7 @@ pub async fn run(file: &str, project: Option<String>, env: Option<String>) -> Re
     let (missing_remote, missing_local) = compare(&local, &remote);
 
     if missing_remote.is_empty() && missing_local.is_empty() {
-        println!("{} is in sync with {}/{}.", file, project, env);
+        crate::ui::success(&format!("{} is in sync with {}/{}", file, project, env));
         return Ok(ExitCode::SUCCESS);
     }
 

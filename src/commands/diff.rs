@@ -10,7 +10,7 @@ pub async fn run(project: &str, env_a: &str, env_b: &str) -> Result<()> {
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
@@ -55,7 +55,7 @@ pub async fn run(project: &str, env_a: &str, env_b: &str) -> Result<()> {
     }
 
     if !has_diff {
-        println!("No differences between {} and {}.", env_a, env_b);
+        crate::ui::step(&format!("No differences between {} and {}", env_a, env_b));
     }
 
     Ok(())

@@ -15,7 +15,7 @@ pub async fn dokploy(compose_id: &str, project: Option<String>, env: Option<Stri
     let config = Config::load()?;
     let token = auth::get_token(&config.server_url)?;
     let Some(token) = token else {
-        bail!("Not logged in. Run `casier login` first.");
+        bail!("not logged in — run `casier login`");
     };
 
     let client = ApiClient::new(&config.server_url, Some(token));
@@ -54,10 +54,10 @@ pub async fn dokploy(compose_id: &str, project: Option<String>, env: Option<Stri
         bail!("POST {} failed ({}): {}", url, status, body);
     }
 
-    println!(
+    crate::ui::success(&format!(
         "Pushed {} vars to Dokploy compose {}",
         secrets.len(),
         compose_id
-    );
+    ));
     Ok(())
 }

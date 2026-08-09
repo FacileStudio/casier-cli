@@ -12,7 +12,9 @@ keys, and pushes an environment to Dokploy. Tokens live in the OS keychain, neve
 curl -fsSL https://raw.githubusercontent.com/FacileStudio/casier-cli/main/install.sh | bash
 ```
 
-Or manually:
+Installs to `~/.local/bin`. Pass `--bin-dir <dir>` to change that, `--source` to build from
+source, `--no-skill` to skip AI agent skill registration. Building from source needs `cargo`
+and `git` on `PATH`.
 
 ```sh
 cargo install --git https://github.com/FacileStudio/casier-cli.git --force
@@ -23,7 +25,7 @@ cargo install --git https://github.com/FacileStudio/casier-cli.git --force
 ```sh
 casier login                                  # prompts for the server, opens a browser under SSO
 casier login --server http://localhost:4000   # against a local API
-casier init                                   # writes .casier.toml so -p/-e become optional
+casier init                                   # writes casier.yml so -p/-e become optional
 ```
 
 `login` resolves the server from `--server`, then `CASIER_SERVER_URL`, then the saved config, then
@@ -31,13 +33,16 @@ a prompt defaulting to `https://casier.facile.studio/api`, and saves the winner 
 `<config_dir>/casier/config.toml`. It probes both `<url>/auth/config` and `<url>/api/auth/config`,
 so either form of the production URL works.
 
-`.casier.toml` sets the per-project defaults:
+`casier.yml` sets the per-project defaults:
 
-```toml
-[project]
-slug = "my-project"
-environment = "dev"
+```yaml
+project:
+  slug: my-project
+  environment: dev
 ```
+
+`.casier.toml` is still read for repositories that have not been converted, and
+`casier.yml` wins when both are present.
 
 ## Usage
 
