@@ -15,11 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # No linux/arm64: this CLI links two C libraries that a plain
-        # gcc-aarch64-linux-gnu cannot satisfy — openssl-sys (reqwest's default
-        # native-tls) and libdbus-sys (keyring's sync-secret-service). Both need
-        # an aarch64 sysroot with pkg-config, which is more machinery than a
-        # missing target is worth. install.sh falls back to a source build there.
+        # No linux/arm64. openssl-sys is gone (reqwest is on rustls now), but
+        # keyring's sync-secret-service still links libdbus-sys, which needs an
+        # aarch64 sysroot with pkg-config. The pure-Rust alternative is
+        # async-secret-service, and keyring's own docs warn it deadlocks when
+        # called from the main thread under tokio — which is exactly how this
+        # CLI calls it. Storing the token in a file instead would drop the C
+        # dependency and unblock this target; keeping it in the keychain is the
+        # deliberate trade. install.sh falls back to a source build here.
         include:
           - runner: macos-latest
             target: x86_64-apple-darwin
@@ -44,7 +47,7 @@ jobs:
         if: matrix.os_name == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev libdbus-1-dev
+          sudo apt-get install -y pkg-config libdbus-1-dev
 
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
