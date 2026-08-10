@@ -12,12 +12,14 @@ keys, and pushes an environment to Dokploy. Tokens live in the OS keychain, neve
 curl -fsSL https://raw.githubusercontent.com/FacileStudio/casier-cli/main/install.sh | bash
 ```
 
-Installs to `~/.local/bin`. Pass `--bin-dir <dir>` to change that, `--source` to build from
-source, `--no-skill` to skip AI agent skill registration. Building from source needs `cargo`
-and `git` on `PATH`.
+Installs to `~/.local/bin` via [facile](https://github.com/FacileStudio/facile), the suite
+installer. Pass `--bin-dir <dir>` to change that, `--source` to build from source, `--no-skill`
+to skip AI agent skill registration.
+
+Already have `facile`:
 
 ```sh
-cargo install --git https://github.com/FacileStudio/casier-cli.git --force
+facile install casier
 ```
 
 ## Setup
