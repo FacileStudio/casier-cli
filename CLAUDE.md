@@ -55,12 +55,13 @@ under `/api` and strips the prefix before the Go app. `login` therefore probes `
 and falls back to `<url>/api/auth/config`, saving whichever answers — so both
 `https://casier.facile.studio` and `.../api` work as a `--server` value.
 
-**SSO login uses a loopback listener, not a device code.** The CLI calls
-`/auth/oidc?cli_port=<port>&cli_state=<nonce>`; after the OIDC round trip the API mints a
-*separate* session token and redirects to `http://127.0.0.1:<port>/callback`. The port and nonce
-are validated server-side and the redirect host is hard-coded, so the parameters cannot be turned
-into an open redirect. The CLI checks the nonce to reject token injection from other local
-processes.
+**SSO login uses a loopback listener plus a one-time code, not a device code.** The CLI calls
+`/auth/oidc?flow=cli&port=<port>&cli_state=<nonce>`; after the OIDC round trip the API redirects
+to `http://127.0.0.1:<port>/?code=<code>&state=<nonce>`, and the CLI exchanges the single-use code
+for a bearer at `POST /auth/oidc/exchange`. The port and nonce are validated server-side and the
+redirect host is hard-coded, so the parameters cannot be turned into an open redirect. The CLI
+checks the nonce to reject code injection from other local processes. (This is porte's login-code
+flow; the earlier loopback-token contract is gone — see Casier's `CLAUDE.md`.)
 
 **Reading a value is a different request from listing keys.** `list_secrets` returns metadata;
 `reveal_secrets` / `reveal_secret` hit `?reveal=true` and `/secrets/{key}/reveal`, which the server
