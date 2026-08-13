@@ -88,7 +88,7 @@ async fn sso_login(server_url: &str, no_browser: bool) -> Result<String> {
     let (listener, port) = loopback::listen().await?;
     let state = loopback::random_state();
     let url = format!(
-        "{}/auth/oidc?cli_port={}&cli_state={}",
+        "{}/auth/oidc?flow=cli&port={}&cli_state={}",
         server_url, port, state
     );
 
@@ -100,7 +100,8 @@ async fn sso_login(server_url: &str, no_browser: bool) -> Result<String> {
     }
     println!("Waiting for sign-in to complete…");
 
-    loopback::wait_for_token(listener, &state, SSO_TIMEOUT).await
+    let code = loopback::wait_for_code(listener, &state, SSO_TIMEOUT).await?;
+    ApiClient::new(server_url, None).exchange(&code).await
 }
 
 async fn password_login(client: &ApiClient) -> Result<String> {

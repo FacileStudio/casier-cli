@@ -14,6 +14,11 @@ pub struct AuthResponse {
 }
 
 #[derive(Deserialize)]
+struct ExchangeResponse {
+    pub token: String,
+}
+
+#[derive(Deserialize)]
 pub struct AuthConfigResponse {
     #[serde(default)]
     pub sso_only: bool,
@@ -184,6 +189,25 @@ impl ApiClient {
             bail!("login failed ({}): {}", status, body);
         }
         Ok(resp.json().await?)
+    }
+
+    /// Exchanges a one-time porte login code for a bearer token. The code only
+    /// works once and expires in under a minute, so it is fetched and consumed
+    /// in the same sign-in run.
+    pub async fn exchange(&self, code: &str) -> Result<String> {
+        let resp = self
+            .request(reqwest::Method::POST, "/auth/oidc/exchange")
+            .json(&serde_json::json!({ "code": code }))
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            bail!("exchanging the sign-in code failed ({}): {}", status, body);
+        }
+        let exchanged: ExchangeResponse = resp.json().await?;
+        Ok(exchanged.token)
     }
 
     pub async fn me(&self) -> Result<MeResponse> {

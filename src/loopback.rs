@@ -24,7 +24,7 @@ pub async fn listen() -> Result<(TcpListener, u16)> {
     Ok((listener, port))
 }
 
-pub async fn wait_for_token(
+pub async fn wait_for_code(
     listener: TcpListener,
     expected_state: &str,
     timeout: Duration,
@@ -43,9 +43,9 @@ async fn accept_callback(listener: TcpListener, expected_state: &str) -> Result<
         };
 
         match parse_callback(&request_line) {
-            Some((token, state)) if state == expected_state => {
+            Some((code, state)) if state == expected_state => {
                 respond(&mut stream, "200 OK", SUCCESS_PAGE).await.ok();
-                return Ok(token);
+                return Ok(code);
             }
             Some(_) => {
                 respond(&mut stream, "400 Bad Request", FAILURE_PAGE)
@@ -92,20 +92,23 @@ async fn respond(stream: &mut TcpStream, status: &str, body: &str) -> Result<()>
 
 fn parse_callback(request_line: &str) -> Option<(String, String)> {
     let target = request_line.split_whitespace().nth(1)?;
-    let query = target.strip_prefix("/callback?")?;
+    let (path, query) = target.split_once('?')?;
+    if path != "/" && path != "/callback" {
+        return None;
+    }
 
-    let mut token = None;
+    let mut code = None;
     let mut state = None;
     for pair in query.split('&') {
         let (key, value) = pair.split_once('=')?;
         match key {
-            "token" => token = Some(percent_decode(value)),
+            "code" => code = Some(percent_decode(value)),
             "state" => state = Some(percent_decode(value)),
             _ => {}
         }
     }
 
-    Some((token?, state?))
+    Some((code?, state?))
 }
 
 fn percent_decode(value: &str) -> String {
@@ -178,25 +181,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_token_and_state() {
-        let line = "GET /callback?token=abc-123_XY&state=deadbeef HTTP/1.1";
-        let (token, state) = parse_callback(line).unwrap();
-        assert_eq!(token, "abc-123_XY");
+    fn parses_code_and_state_from_root_redirect() {
+        let line = "GET /?code=abc-123_XY&state=deadbeef HTTP/1.1";
+        let (code, state) = parse_callback(line).unwrap();
+        assert_eq!(code, "abc-123_XY");
+        assert_eq!(state, "deadbeef");
+    }
+
+    #[test]
+    fn accepts_the_legacy_callback_path() {
+        let line = "GET /callback?code=abc&state=deadbeef HTTP/1.1";
+        let (code, state) = parse_callback(line).unwrap();
+        assert_eq!(code, "abc");
         assert_eq!(state, "deadbeef");
     }
 
     #[test]
     fn decodes_escaped_values() {
-        let line = "GET /callback?token=a%2Fb%26c&state=x+y HTTP/1.1";
-        let (token, state) = parse_callback(line).unwrap();
-        assert_eq!(token, "a/b&c");
+        let line = "GET /?code=a%2Fb%26c&state=x+y HTTP/1.1";
+        let (code, state) = parse_callback(line).unwrap();
+        assert_eq!(code, "a/b&c");
         assert_eq!(state, "x y");
     }
 
     #[test]
     fn ignores_unrelated_requests() {
         assert!(parse_callback("GET /favicon.ico HTTP/1.1").is_none());
-        assert!(parse_callback("GET /callback?token=only HTTP/1.1").is_none());
+        assert!(parse_callback("GET /?code=only HTTP/1.1").is_none());
         assert!(parse_callback("garbage").is_none());
     }
 
