@@ -207,6 +207,9 @@ impl ApiClient {
             bail!("exchanging the sign-in code failed ({}): {}", status, body);
         }
         let exchanged: ExchangeResponse = resp.json().await?;
+        if exchanged.token.is_empty() {
+            bail!("the server returned an empty token for the login code");
+        }
         Ok(exchanged.token)
     }
 
