@@ -90,3 +90,59 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
             dist/*.tar.gz dist/checksums.txt
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push Homebrew formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          base="https://github.com/FacileStudio/casier-cli/releases/download/${GITHUB_REF_NAME}"
+
+          gh release download "$GITHUB_REF_NAME" --pattern 'checksums.txt'
+          sha() { grep "casier_${version}_$1.tar.gz" checksums.txt | awk '{print $1}'; }
+
+          {
+            echo "class Casier < Formula"
+            echo "  desc \"Terminal client for Casier, the self-hosted secrets manager\""
+            echo "  homepage \"https://github.com/FacileStudio/casier-cli\""
+            echo "  version \"${version}\""
+            echo ""
+            echo "  on_macos do"
+            echo "    if Hardware::CPU.arm?"
+            echo "      url \"${base}/casier_${version}_darwin_arm64.tar.gz\""
+            echo "      sha256 \"$(sha darwin_arm64)\""
+            echo "    else"
+            echo "      url \"${base}/casier_${version}_darwin_amd64.tar.gz\""
+            echo "      sha256 \"$(sha darwin_amd64)\""
+            echo "    end"
+            echo "  end"
+            echo ""
+            echo "  on_linux do"
+            echo "    url \"${base}/${bin}_${version}_linux_amd64.tar.gz\""
+            echo "    sha256 \"$(sha linux_amd64)\""
+            echo "  end"
+            echo ""
+            echo "  def install"
+            echo "    bin.install \"casier\""
+            echo "  end"
+            echo ""
+            echo "  test do"
+            echo "    system \"#{bin}/casier\", \"--version\""
+            echo "  end"
+            echo "end"
+          } > formula.rb
+
+          git clone -q https://x-access-token:${GH_TOKEN}@github.com/FacileStudio/homebrew-tap.git tap
+          mkdir -p tap/Formula
+          cp formula.rb "tap/Formula/casier.rb"
+          cd tap
+          git config user.name goreleaserbot
+          git config user.email bot@goreleaser.com
+          git add "Formula/casier.rb"
+          git commit -m "casier ${version}"
+          git push
