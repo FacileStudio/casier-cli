@@ -5,7 +5,7 @@ description: >
   sync environment variables and secrets, or mentions Casier.
 ---
 
-# casier — Facile secrets manager
+# casier: Facile secrets manager
 
 Binary: `casier`
 Config: `<config_dir>/casier/config.toml` (server URL) + `casier.yml` (per-project defaults)
@@ -26,6 +26,13 @@ casier login [--server <url>] [--no-browser]   Authenticate (opens a browser und
 casier logout                                  Clear the stored token
 casier init                                    Write casier.yml in the current project
 casier projects                                List projects you belong to
+```
+
+### API keys
+```
+casier keys list [--app <name>] [--json]       List registered API keys
+casier keys create --app <name> [--public]     Mint a new API key
+casier keys revoke <id> [--yes] [--json]       Revoke an API key
 ```
 
 ### Secrets
@@ -51,11 +58,11 @@ casier push dokploy <composeId> [-p <project>] [-e <env>]
 ```
 
 ## Rules
-- `-p`/`-e` default to `casier.yml` (or a legacy `.casier.toml`), then `dev` — omit them inside a configured project
+- `-p`/`-e` default to `casier.yml` (or a legacy `.casier.toml`), then `dev`, omit them inside a configured project
 - Prefer `casier run -- <cmd>` over writing a `.env`; it never touches the disk
-- `--show` and `get` reveal plaintext and are audited server-side as such — do not use them to
+- `--show` and `get` reveal plaintext and are audited server-side as such, do not use them to
   fill a variable you could have injected with `run`
 - `--offline` reuses the last cached read; it is for a lost network, not for speed
 - `push dokploy` needs `DOKPLOY_URL` and `DOKPLOY_API_KEY`, and overwrites the compose env
-- In CI, set `CASIER_TOKEN` — there is no keychain there
+- In CI, set `CASIER_TOKEN`, there is no keychain there
 - Run `casier <cmd> -h` for exact syntax when unsure

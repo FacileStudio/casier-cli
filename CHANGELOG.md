@@ -12,7 +12,15 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
-## [0.1.1] — 2026-08-13
+## [0.2.0] - 2026-09-01
+
+### Added
+
+- `casier keys` command group for API key management (`list`, `create`, `revoke`).
+- Support for creating secret and public API keys with daily quotas and allowed origins.
+- JSON output support across all `casier keys` subcommands via `--json`.
+
+## [0.1.1] - 2026-08-13
 
 ### Changed
 
@@ -28,7 +36,7 @@ split on 2026-08-06 carried that history over.
 - `openssl-sys`. reqwest builds its TLS with rustls, which drops the system
   OpenSSL from the build.
 
-## [0.1.0] — 2026-08-10
+## [0.1.0] - 2026-08-10
 
 ### Added
 
@@ -48,6 +56,7 @@ split on 2026-08-06 carried that history over.
   answer, rather than storing an empty string nobody meant.
 - The project was renamed from Clef to Casier.
 
-[Unreleased]: https://github.com/FacileStudio/casier-cli/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/FacileStudio/casier-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/FacileStudio/casier-cli/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/FacileStudio/casier-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FacileStudio/casier-cli/releases/tag/v0.1.0

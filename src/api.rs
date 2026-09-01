@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub struct ApiClient {
     base_url: String,
@@ -37,6 +37,49 @@ pub struct Project {
     pub slug: String,
     #[serde(default)]
     pub description: String,
+}
+
+fn is_zero_quota(quota: &i32) -> bool {
+    *quota <= 0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Key {
+    pub id: i64,
+    pub app: String,
+    pub kind: String,
+    pub prefix: String,
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
+    #[serde(default)]
+    pub daily_quota: i32,
+    #[serde(default)]
+    pub used_today: i64,
+    pub created_at: String,
+    #[serde(default)]
+    pub revoked_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateKeyRequest {
+    pub app: String,
+    pub kind: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub allowed_origins: Vec<String>,
+    #[serde(skip_serializing_if = "is_zero_quota", default)]
+    pub daily_quota: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateKeyResponse {
+    pub key: Key,
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListKeysResponse {
+    #[serde(default)]
+    pub keys: Vec<Key>,
 }
 
 /// A secret as the list route returns it. `value` is absent unless the request
@@ -365,6 +408,54 @@ impl ApiClient {
         }
         Ok(())
     }
+
+    pub async fn list_keys(&self, app: Option<&str>) -> Result<Vec<Key>> {
+        let path = match app {
+            Some(a) if !a.is_empty() => format!("/apikeys?app={}", a),
+            _ => "/apikeys".to_string(),
+        };
+        let resp = self
+            .request(reqwest::Method::GET, &path)
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            bail!("GET {} returned {}", path, resp.status());
+        }
+        let body: ListKeysResponse = resp.json().await?;
+        Ok(body.keys)
+    }
+
+    pub async fn create_key(&self, req: &CreateKeyRequest) -> Result<CreateKeyResponse> {
+        let path = "/apikeys";
+        let resp = self
+            .request(reqwest::Method::POST, path)
+            .json(req)
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            bail!("POST {} failed ({}): {}", path, status, body);
+        }
+        Ok(resp.json().await?)
+    }
+
+    pub async fn revoke_key(&self, id: i64) -> Result<()> {
+        let path = format!("/apikeys/{}", id);
+        let resp = self
+            .request(reqwest::Method::DELETE, &path)
+            .send()
+            .await
+            .context("failed to reach server")?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            bail!("DELETE {} failed ({}): {}", path, status, body);
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -422,5 +513,105 @@ mod tests {
         ))
         .unwrap_err();
         assert!(format!("{}", err).contains("1 of 2"));
+    }
+
+    #[tokio::test]
+    async fn list_keys_sends_query_and_parses_response() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let n = tokio::io::AsyncReadExt::read(&mut stream, &mut buf)
+                .await
+                .unwrap();
+            let req_str = String::from_utf8_lossy(&buf[..n]);
+            assert!(req_str.starts_with("GET /apikeys?app=testapp HTTP/1.1"));
+            let body = r#"{"keys":[{"id":1,"app":"testapp","kind":"secret","prefix":"casier_testapp_","allowed_origins":[],"daily_quota":0,"used_today":0,"created_at":"2026-09-01T00:00:00Z"}]}"#;
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            tokio::io::AsyncWriteExt::write_all(&mut stream, resp.as_bytes())
+                .await
+                .unwrap();
+        });
+
+        let client = ApiClient::new(
+            &format!("http://127.0.0.1:{}", port),
+            Some("tok".to_string()),
+        );
+        let keys = client.list_keys(Some("testapp")).await.unwrap();
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].id, 1);
+        assert_eq!(keys[0].app, "testapp");
+        assert_eq!(keys[0].kind, "secret");
+    }
+
+    #[tokio::test]
+    async fn create_key_sends_payload_and_parses_token() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let n = tokio::io::AsyncReadExt::read(&mut stream, &mut buf)
+                .await
+                .unwrap();
+            let req_str = String::from_utf8_lossy(&buf[..n]);
+            assert!(req_str.starts_with("POST /apikeys HTTP/1.1"));
+            assert!(req_str.contains(r#""app":"myapp""#));
+            assert!(req_str.contains(r#""kind":"public""#));
+            let body = r#"{"key":{"id":10,"app":"myapp","kind":"public","prefix":"casier_pub_myapp_","allowed_origins":["example.com"],"daily_quota":100,"used_today":0,"created_at":"2026-09-01T00:00:00Z"},"token":"casier_pub_myapp_raw_token"}"#;
+            let resp = format!(
+                "HTTP/1.1 201 Created\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            tokio::io::AsyncWriteExt::write_all(&mut stream, resp.as_bytes())
+                .await
+                .unwrap();
+        });
+
+        let client = ApiClient::new(
+            &format!("http://127.0.0.1:{}", port),
+            Some("tok".to_string()),
+        );
+        let req = CreateKeyRequest {
+            app: "myapp".to_string(),
+            kind: "public".to_string(),
+            allowed_origins: vec!["example.com".to_string()],
+            daily_quota: 100,
+        };
+        let res = client.create_key(&req).await.unwrap();
+        assert_eq!(res.key.id, 10);
+        assert_eq!(res.token, "casier_pub_myapp_raw_token");
+    }
+
+    #[tokio::test]
+    async fn revoke_key_sends_delete() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let n = tokio::io::AsyncReadExt::read(&mut stream, &mut buf)
+                .await
+                .unwrap();
+            let req_str = String::from_utf8_lossy(&buf[..n]);
+            assert!(req_str.starts_with("DELETE /apikeys/10 HTTP/1.1"));
+            let resp = "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            tokio::io::AsyncWriteExt::write_all(&mut stream, resp.as_bytes())
+                .await
+                .unwrap();
+        });
+
+        let client = ApiClient::new(
+            &format!("http://127.0.0.1:{}", port),
+            Some("tok".to_string()),
+        );
+        let res = client.revoke_key(10).await;
+        assert!(res.is_ok());
     }
 }

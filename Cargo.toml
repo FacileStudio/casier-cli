@@ -1,6 +1,6 @@
 [package]
 name = "casier"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "Terminal client for Casier, the Facile self-hosted secrets manager"
 repository = "https://github.com/FacileStudio/casier-cli"
@@ -24,7 +24,7 @@ keyring = { version = "3", features = ["apple-native"] }
 keyring = { version = "3", features = ["windows-native"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+keyring = { version = "3", features = ["linux-native", "crypto-rust"] }
 
 [profile.release]
 strip = true

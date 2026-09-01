@@ -1,6 +1,7 @@
 pub mod check;
 pub mod diff;
 pub mod init;
+pub mod keys;
 pub mod login;
 pub mod logout;
 pub mod projects;

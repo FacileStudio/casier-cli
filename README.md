@@ -53,6 +53,11 @@ casier projects
 casier secrets list -p my-project -e prod            # values masked
 casier secrets list -p my-project -e prod --show     # values revealed, and audited as such
 casier secrets set -p my-project -e prod API_KEY sk-…
+casier keys list                                     # list all registered API keys
+casier keys list --app my-app --json                 # list keys for an app as JSON
+casier keys create --app my-app                      # mint a secret API key
+casier keys create --app my-app --public --origins https://app.example.com --quota 5000
+casier keys revoke 1 --yes                           # revoke an API key
 casier run -- bun dev                                # inject and run, nothing hits the disk
 casier run --offline -- bun dev                      # last cached read, for a lost network
 casier check .env                                    # exit 1 if the server lacks a key
@@ -72,7 +77,7 @@ CASIER_TOKEN=casier_… casier check .env -p my-project -e prod
 CASIER_TOKEN=casier_… casier run -p my-project -e prod -- ./deploy.sh
 ```
 
-Scope the token to one project, one environment and read-only permissions — the server enforces
+Scope the token to one project, one environment and read-only permissions, the server enforces
 all three.
 
 ## AI agent integration

@@ -21,7 +21,7 @@ have to land in both.
 ```sh
 cargo build              # debug build
 cargo build --release    # optimized (LTO + strip)
-cargo test               # unit tests — api, cache, check, envfile, loopback
+cargo test               # unit tests, api, cache, check, envfile, loopback
 cargo fmt --check        # formatting gate
 cargo run -- projects    # run a subcommand locally
 ```
@@ -31,13 +31,13 @@ cargo run -- projects    # run a subcommand locally
 ```
 src/
   main.rs        clap definition and subcommand dispatch
-  api.rs         Casier REST client, Secret / RevealedSecret / MissingValues
+  api.rs         Casier REST client, Secret / RevealedSecret / MissingValues, Key
   auth.rs        Keychain token storage, CASIER_TOKEN override
   config.rs      <config_dir>/casier/config.toml, casier.yml, project/env resolution
   cache.rs       Offline secret cache backing `run --offline`
   envfile.rs     .env parsing and serialization
   loopback.rs    Ephemeral 127.0.0.1 listener for the SSO login round trip
-  commands/      login, logout, init, projects, secrets, run, check, diff, sync, push
+  commands/      login, logout, init, projects, keys, secrets, run, check, diff, sync, push
 integrations/
   SKILL.md       AI agent skill, registered by install.sh
 ```
@@ -45,14 +45,14 @@ integrations/
 ## Load-bearing details
 
 **`keyring` must keep its per-target platform features** in `Cargo.toml` (`apple-native`,
-`windows-native`, `sync-secret-service`). With none of them enabled the crate silently falls back
+`windows-native`, `linux-native`). With none of them enabled the crate silently falls back
 to an in-memory mock store: login prints "Logged in as …", writes the config, and the token
 disappears when the process exits, so every later command reports "Not logged in". `store_token`
 reads the token back after writing to make that failure loud if it ever regresses.
 
 **The API is at `/api` in production and at the root in development.** Traefik serves Casier's API
 under `/api` and strips the prefix before the Go app. `login` therefore probes `<url>/auth/config`
-and falls back to `<url>/api/auth/config`, saving whichever answers — so both
+and falls back to `<url>/api/auth/config`, saving whichever answers, so both
 `https://casier.facile.studio` and `.../api` work as a `--server` value.
 
 **SSO login uses a loopback listener plus a one-time code, not a device code.** The CLI calls
@@ -61,13 +61,13 @@ to `http://127.0.0.1:<port>/?code=<code>&state=<nonce>`, and the CLI exchanges t
 for a bearer at `POST /auth/oidc/exchange`. The port and nonce are validated server-side and the
 redirect host is hard-coded, so the parameters cannot be turned into an open redirect. The CLI
 checks the nonce to reject code injection from other local processes. (This is porte's login-code
-flow; the earlier loopback-token contract is gone — see Casier's `CLAUDE.md`.)
+flow; the earlier loopback-token contract is gone, see Casier's `CLAUDE.md`.)
 
 **Reading a value is a different request from listing keys.** `list_secrets` returns metadata;
 `reveal_secrets` / `reveal_secret` hit `?reveal=true` and `/secrets/{key}/reveal`, which the server
 audits separately. `RevealedSecret` carries a `String` where `Secret` carries an `Option<String>`,
 so "did the server actually send values?" is answered once at the boundary. A valueless answer to
-a revealing read means this binary is older than the server and raises `MissingValues` —
+a revealing read means this binary is older than the server and raises `MissingValues`.
 `run` deliberately does **not** fall back to its offline cache for that error, because the server
 was reachable and a stale cache would hide the bug rather than surface it.
 
@@ -78,5 +78,5 @@ was reachable and a stale cache would hide the bug rather than surface it.
 
 - No inline comments; doc comments (`///`) carry the reasoning that is not obvious from the code
 - Remove dead code rather than allowing it
-- Non-trivial logic gets one runnable test — no fixtures, no frameworks
+- Non-trivial logic gets one runnable test, no fixtures, no frameworks
 - Commit style: capitalized imperative sentence, body explains why

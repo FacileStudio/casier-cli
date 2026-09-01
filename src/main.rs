@@ -39,6 +39,11 @@ enum Commands {
     Init,
     #[command(about = "List projects you belong to")]
     Projects,
+    #[command(about = "Manage API keys")]
+    Keys {
+        #[command(subcommand)]
+        action: KeysAction,
+    },
     #[command(about = "Manage secrets")]
     Secrets {
         #[command(subcommand)]
@@ -161,6 +166,43 @@ enum SecretsAction {
     },
 }
 
+#[derive(Subcommand)]
+enum KeysAction {
+    #[command(about = "List registered API keys")]
+    List {
+        #[arg(long, help = "Filter keys by application name")]
+        app: Option<String>,
+        #[arg(long, help = "Output as JSON")]
+        json: bool,
+    },
+    #[command(about = "Create a new API key")]
+    Create {
+        #[arg(long, help = "Application name")]
+        app: String,
+        #[arg(long, help = "Create a public browser key instead of a secret key")]
+        public: bool,
+        #[arg(
+            long,
+            value_delimiter = ',',
+            help = "Comma-separated allowed origins (for public keys)"
+        )]
+        origins: Vec<String>,
+        #[arg(long, help = "Daily event quota limit (for public keys)")]
+        quota: Option<i32>,
+        #[arg(long, help = "Output as JSON")]
+        json: bool,
+    },
+    #[command(about = "Revoke an API key")]
+    Revoke {
+        #[arg(help = "Key ID to revoke")]
+        id: i64,
+        #[arg(short, long, help = "Confirm revocation without prompting")]
+        yes: bool,
+        #[arg(long, help = "Output as JSON")]
+        json: bool,
+    },
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -186,6 +228,23 @@ async fn main() -> ExitCode {
                 .map(|_| ExitCode::SUCCESS),
         },
         Commands::Projects => commands::projects::run().await.map(|_| ExitCode::SUCCESS),
+        Commands::Keys { action } => match action {
+            KeysAction::List { app, json } => commands::keys::list(app.as_deref(), json)
+                .await
+                .map(|_| ExitCode::SUCCESS),
+            KeysAction::Create {
+                app,
+                public,
+                origins,
+                quota,
+                json,
+            } => commands::keys::create(&app, public, &origins, quota, json)
+                .await
+                .map(|_| ExitCode::SUCCESS),
+            KeysAction::Revoke { id, yes, json } => commands::keys::revoke(id, yes, json)
+                .await
+                .map(|_| ExitCode::SUCCESS),
+        },
         Commands::Secrets { action } => match action {
             SecretsAction::List { project, env, show } => {
                 commands::secrets::list(&project, &env, show)
