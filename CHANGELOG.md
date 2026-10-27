@@ -12,6 +12,12 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-27
+
+### Fixed
+
+- Handle Linux keyring `NoEntry` on `Entry::new` when session keyring is absent.
+
 ## [0.2.0] - 2026-09-01
 
 ### Added
@@ -56,7 +62,8 @@ split on 2026-08-06 carried that history over.
   answer, rather than storing an empty string nobody meant.
 - The project was renamed from Clef to Casier.
 
-[Unreleased]: https://github.com/FacileStudio/casier-cli/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/FacileStudio/casier-cli/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/FacileStudio/casier-cli/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/FacileStudio/casier-cli/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/FacileStudio/casier-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FacileStudio/casier-cli/releases/tag/v0.1.0
