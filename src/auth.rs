@@ -26,7 +26,11 @@ pub fn get_token(server_url: &str) -> Result<Option<String>> {
         }
     }
 
-    let entry = Entry::new(SERVICE, server_url)?;
+    let entry = match Entry::new(SERVICE, server_url) {
+        Ok(entry) => entry,
+        Err(keyring::Error::NoEntry) => return Ok(None),
+        Err(e) => return Err(e).context("failed to access keychain"),
+    };
     match entry.get_password() {
         Ok(token) => Ok(Some(token)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -35,7 +39,11 @@ pub fn get_token(server_url: &str) -> Result<Option<String>> {
 }
 
 pub fn delete_token(server_url: &str) -> Result<()> {
-    let entry = Entry::new(SERVICE, server_url)?;
+    let entry = match Entry::new(SERVICE, server_url) {
+        Ok(entry) => entry,
+        Err(keyring::Error::NoEntry) => return Ok(()),
+        Err(e) => return Err(e).context("failed to access keychain"),
+    };
     match entry.delete_credential() {
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),
