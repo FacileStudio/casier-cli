@@ -12,6 +12,22 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+### Changed
+
+- `casier login` signs in with the OAuth device grant when the server offers SSO. It prints an
+  approval link to open in any browser and needs no port on this machine, so it works over SSH.
+  Nothing to type or paste. `--no-browser` only stops it from opening the link.
+- The loopback redirect is behind `casier login --listener`. A server without
+  `/auth/oidc/device/exchange` falls back to it on its own.
+- A 401 from the exchange says to sign in once at the web app in a browser, since the exchange
+  never creates an account.
+
+### Fixed
+
+- The clippy 1.98 lints in `projects`, `secrets` and `run`.
+
 ## [0.3.0] - 2026-11-03
 
 ### Changed
