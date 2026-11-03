@@ -12,6 +12,18 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-03
+
+### Changed
+
+- `casier login` takes the server as an optional argument and defaults to
+  `https://casier.facile.studio`. It never prompts for a URL.
+- When the server offers SSO and a browser is available, login opens the browser and finishes
+  on its own, with no "Login with SSO?" question. `--no-browser` prints the SSO URL, and
+  without a browser the CLI asks for email and password.
+- The loopback page matches the shared Facile sign-in page, and a callback with the wrong
+  state no longer ends the login.
+
 ## [0.2.1] - 2026-10-27
 
 ### Fixed

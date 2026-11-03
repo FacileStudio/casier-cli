@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use std::io::Read;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -6,15 +6,46 @@ use tokio::net::{TcpListener, TcpStream};
 
 const MAX_REQUEST_LINE: usize = 8192;
 
-const SUCCESS_PAGE: &str = "<!doctype html><meta charset=utf-8><title>Casier</title>\
-<body style=\"font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0\">\
-<div style=\"text-align:center\"><h1>Signed in to Casier</h1>\
-<p>You can close this tab and return to your terminal.</p></div>";
+const PAGE_HEAD: &str = "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">\
+<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Casier</title>\
+<style>:root{color-scheme:light dark;--bg:#fafafa;--fg:#18181b;--muted:#71717a;--card:#fff;--warn:#b45309}\
+@media (prefers-color-scheme:dark){:root{--bg:#09090b;--fg:#fafafa;--muted:#a1a1aa;--card:#18181b;--warn:#fbbf24}}\
+*{box-sizing:border-box}\
+body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:1.5rem;\
+background:var(--bg);color:var(--fg);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}\
+main{width:100%;max-width:26rem}\
+.brand{text-align:center;margin-bottom:2rem;font-size:1.125rem;font-weight:650;letter-spacing:-.01em}\
+.card{background:var(--card);border-radius:.75rem;padding:1.75rem;text-align:center}\
+h1{margin:0;font-size:1.25rem;font-weight:650;letter-spacing:-.01em}\
+p{margin:.5rem 0 0;font-size:.875rem;color:var(--muted)}\
+p.warn{color:var(--warn)}\
+.hint{margin-top:1.5rem;text-align:center;font-size:.8125rem;color:var(--muted)}</style>";
 
-const FAILURE_PAGE: &str = "<!doctype html><meta charset=utf-8><title>Casier</title>\
-<body style=\"font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0\">\
-<div style=\"text-align:center\"><h1>Sign-in failed</h1>\
-<p>The callback did not match this login attempt. Run <code>casier login</code> again.</p></div>";
+fn page(heading: &str, body: &str, hint: &str, warn: bool) -> String {
+    let class = if warn { " class=\"warn\"" } else { "" };
+    format!(
+        "{PAGE_HEAD}<main><div class=\"brand\">Casier</div><div class=\"card\"><h1>{heading}</h1>\
+<p{class}>{body}</p></div><p class=\"hint\">{hint}</p></main>"
+    )
+}
+
+fn success_page() -> String {
+    page(
+        "Signed in",
+        "Casier has your login.",
+        "You can close this tab and go back to your terminal.",
+        false,
+    )
+}
+
+fn failure_page() -> String {
+    page(
+        "Sign-in refused",
+        "The callback did not match this login attempt.",
+        "The login started in your terminal is still waiting.",
+        true,
+    )
+}
 
 pub async fn listen() -> Result<(TcpListener, u16)> {
     let listener = TcpListener::bind("127.0.0.1:0")
@@ -44,14 +75,13 @@ async fn accept_callback(listener: TcpListener, expected_state: &str) -> Result<
 
         match parse_callback(&request_line) {
             Some((code, state)) if state == expected_state => {
-                respond(&mut stream, "200 OK", SUCCESS_PAGE).await.ok();
+                respond(&mut stream, "200 OK", &success_page()).await.ok();
                 return Ok(code);
             }
             Some(_) => {
-                respond(&mut stream, "400 Bad Request", FAILURE_PAGE)
+                respond(&mut stream, "400 Bad Request", &failure_page())
                     .await
                     .ok();
-                bail!("SSO callback did not match this login attempt");
             }
             None => {
                 respond(&mut stream, "404 Not Found", "").await.ok();

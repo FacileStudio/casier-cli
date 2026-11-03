@@ -28,7 +28,9 @@ struct Cli {
 enum Commands {
     #[command(about = "Authenticate with the Casier server")]
     Login {
-        #[arg(long, help = "Casier server URL (saved for future commands)")]
+        #[arg(help = "Casier server URL (default: https://casier.facile.studio)")]
+        url: Option<String>,
+        #[arg(long, help = "Casier server URL, same as the positional argument")]
         server: Option<String>,
         #[arg(long, help = "Print the sign-in URL instead of opening a browser")]
         no_browser: bool,
@@ -211,7 +213,11 @@ async fn main() -> ExitCode {
     }
 
     let result = match cli.command {
-        Commands::Login { server, no_browser } => commands::login::run(server, no_browser)
+        Commands::Login {
+            url,
+            server,
+            no_browser,
+        } => commands::login::run(url.or(server), no_browser)
             .await
             .map(|_| ExitCode::SUCCESS),
         Commands::Logout => commands::logout::run().map(|_| ExitCode::SUCCESS),

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use std::io::IsTerminal;
 use std::io::{self, Write};
 use std::time::Duration;
 
@@ -13,15 +14,15 @@ pub async fn run(server: Option<String>, no_browser: bool) -> Result<()> {
     let (server_url, auth_config) = discover_api(resolve_server(server)?).await?;
     let client = ApiClient::new(&server_url, None);
 
-    let token = if auth_config.sso_only {
-        if !auth_config.oidc_enabled {
-            bail!(
-                "{} only allows SSO logins but has no OIDC provider configured",
-                server_url
-            );
-        }
-        sso_login(&server_url, no_browser).await?
-    } else if auth_config.oidc_enabled && prompt_yes_no("Login with SSO? [Y/n] ")? {
+    let use_sso =
+        auth_config.oidc_enabled && (auth_config.sso_only || no_browser || browser_available());
+    if auth_config.sso_only && !auth_config.oidc_enabled {
+        bail!(
+            "{} only allows SSO logins but has no OIDC provider configured",
+            server_url
+        );
+    }
+    let token = if use_sso {
         sso_login(&server_url, no_browser).await?
     } else {
         password_login(&client).await?
@@ -71,17 +72,18 @@ fn resolve_server(flag: Option<String>) -> Result<String> {
         return normalize_server_url(&stored.server_url);
     }
 
-    let fallback = default_server_url();
-    print!("Casier server URL [{}]: ", fallback);
-    io::stdout().flush()?;
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    let input = input.trim();
-    if input.is_empty() {
-        Ok(fallback)
-    } else {
-        normalize_server_url(input)
+    normalize_server_url(&default_server_url())
+}
+
+fn browser_available() -> bool {
+    if !io::stdout().is_terminal() {
+        return false;
     }
+    if cfg!(target_os = "linux") {
+        return std::env::var_os("DISPLAY").is_some()
+            || std::env::var_os("WAYLAND_DISPLAY").is_some();
+    }
+    true
 }
 
 async fn sso_login(server_url: &str, no_browser: bool) -> Result<String> {
@@ -94,11 +96,10 @@ async fn sso_login(server_url: &str, no_browser: bool) -> Result<String> {
 
     if no_browser || !loopback::open_browser(&url) {
         println!("Open this URL to sign in:\n  {}", url);
+        println!("Waiting for sign-in to complete…");
     } else {
-        println!("Opening your browser to sign in…");
-        println!("If nothing opened, use:\n  {}", url);
+        println!("Waiting for the browser to complete sign-in…");
     }
-    println!("Waiting for sign-in to complete…");
 
     let code = loopback::wait_for_code(listener, &state, SSO_TIMEOUT).await?;
     ApiClient::new(server_url, None).exchange(&code).await
@@ -119,13 +120,4 @@ async fn password_login(client: &ApiClient) -> Result<String> {
     let password = rpassword::read_password()?;
 
     Ok(client.login(&email, &password).await?.token)
-}
-
-fn prompt_yes_no(question: &str) -> Result<bool> {
-    print!("{}", question);
-    io::stdout().flush()?;
-    let mut answer = String::new();
-    io::stdin().read_line(&mut answer)?;
-    let answer = answer.trim().to_lowercase();
-    Ok(answer.is_empty() || answer == "y" || answer == "yes")
 }
