@@ -12,6 +12,12 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-03
+
+### Fixed
+
+- The release workflow updates the Homebrew formula again: `gh release download` names the repository, so it no longer needs a git checkout.
+
 ## [0.4.0] - 2026-11-03
 
 ### Changed
