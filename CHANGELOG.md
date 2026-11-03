@@ -12,6 +12,12 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-03
+
+### Fixed
+
+- The Homebrew formula's Linux URL names the `casier` tarball instead of an unset variable, so the formula push completes.
+
 ## [0.4.1] - 2026-11-03
 
 ### Fixed
