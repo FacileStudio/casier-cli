@@ -123,7 +123,7 @@ jobs:
             echo "  end"
             echo ""
             echo "  on_linux do"
-            echo "    url \"${base}/${bin}_${version}_linux_amd64.tar.gz\""
+            echo "    url \"${base}/casier_${version}_linux_amd64.tar.gz\""
             echo "    sha256 \"$(sha linux_amd64)\""
             echo "  end"
             echo ""
