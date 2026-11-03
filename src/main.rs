@@ -3,6 +3,7 @@ mod auth;
 mod cache;
 mod commands;
 mod config;
+mod device;
 mod envfile;
 mod loopback;
 mod ui;
@@ -26,7 +27,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Authenticate with the Casier server")]
+    #[command(about = "Authenticate with the Casier server by approving a link in any browser")]
     Login {
         #[arg(help = "Casier server URL (default: https://casier.facile.studio)")]
         url: Option<String>,
@@ -34,6 +35,11 @@ enum Commands {
         server: Option<String>,
         #[arg(long, help = "Print the sign-in URL instead of opening a browser")]
         no_browser: bool,
+        #[arg(
+            long,
+            help = "Sign in through a redirect to a port on this machine instead of an approval link"
+        )]
+        listener: bool,
     },
     #[command(about = "Clear stored credentials")]
     Logout,
@@ -217,7 +223,8 @@ async fn main() -> ExitCode {
             url,
             server,
             no_browser,
-        } => commands::login::run(url.or(server), no_browser)
+            listener,
+        } => commands::login::run(url.or(server), no_browser, listener)
             .await
             .map(|_| ExitCode::SUCCESS),
         Commands::Logout => commands::logout::run().map(|_| ExitCode::SUCCESS),

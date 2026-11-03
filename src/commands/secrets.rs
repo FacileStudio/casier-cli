@@ -48,7 +48,7 @@ pub async fn list(project: &str, env: &str, show: bool) -> Result<()> {
         .unwrap_or(0)
         .max(3);
 
-    println!("{:<key_width$}  {:<40}  {}", "KEY", "VALUE", "VERSION");
+    println!("{:<key_width$}  {:<40}  VERSION", "KEY", "VALUE");
 
     for (key, value, version) in &rows {
         println!("{:<key_width$}  {:<40}  {}", key, value, version);

@@ -23,8 +23,8 @@ pub async fn run() -> Result<()> {
     let slug_width = projects.iter().map(|s| s.slug.len()).max().unwrap_or(0);
 
     println!(
-        "{:<name_width$}  {:<slug_width$}  {}",
-        "NAME", "SLUG", "DESCRIPTION"
+        "{:<name_width$}  {:<slug_width$}  DESCRIPTION",
+        "NAME", "SLUG"
     );
 
     for s in &projects {

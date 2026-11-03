@@ -37,7 +37,7 @@ pub async fn run(
     let status = cmd.status()?;
 
     Ok(ExitCode::from(
-        status.code().unwrap_or(1).min(255).max(0) as u8
+        status.code().unwrap_or(1).clamp(0, 255) as u8
     ))
 }
 

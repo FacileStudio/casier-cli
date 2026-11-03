@@ -21,7 +21,7 @@ have to land in both.
 ```sh
 cargo build              # debug build
 cargo build --release    # optimized (LTO + strip)
-cargo test               # unit tests, api, cache, check, envfile, loopback
+cargo test               # unit tests, api, cache, check, envfile, device, loopback
 cargo fmt --check        # formatting gate
 cargo run -- projects    # run a subcommand locally
 ```
@@ -36,7 +36,8 @@ src/
   config.rs      <config_dir>/casier/config.toml, casier.yml, project/env resolution
   cache.rs       Offline secret cache backing `run --offline`
   envfile.rs     .env parsing and serialization
-  loopback.rs    Ephemeral 127.0.0.1 listener for the SSO login round trip
+  device.rs      RFC 8628 device grant against Registre and porte's device exchange (default login)
+  loopback.rs    Ephemeral 127.0.0.1 listener for `login --listener`
   commands/      login, logout, init, projects, keys, secrets, run, check, diff, sync, push
 integrations/
   SKILL.md       AI agent skill, registered by install.sh
@@ -55,7 +56,14 @@ under `/api` and strips the prefix before the Go app. `login` therefore probes `
 and falls back to `<url>/api/auth/config`, saving whichever answers, so both
 `https://casier.facile.studio` and `.../api` work as a `--server` value.
 
-**SSO login uses a loopback listener plus a one-time code, not a device code.** The CLI calls
+**SSO login uses the device grant by default.** `device.rs` runs RFC 8628 against
+`https://sso.facile.studio` with the public client `facile-cli`, prints the approval link, polls,
+and trades Registre's access token for a Casier bearer at `POST /auth/oidc/device/exchange`. That
+works over SSH. Before printing a code it probes the exchange with an empty body: porte answers 400
+when the route is mounted and 404 when not, and a 404 falls back to the loopback flow below. The
+exchange looks accounts up and never creates them, so its 401 means "sign in once in a browser".
+
+**`login --listener` uses a loopback listener plus a one-time code.** The CLI calls
 `/auth/oidc?flow=cli&port=<port>&cli_state=<nonce>`; after the OIDC round trip the API redirects
 to `http://127.0.0.1:<port>/?code=<code>&state=<nonce>`, and the CLI exchanges the single-use code
 for a bearer at `POST /auth/oidc/exchange`. The port and nonce are validated server-side and the

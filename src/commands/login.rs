@@ -6,26 +6,37 @@ use std::time::Duration;
 use crate::api::{ApiClient, AuthConfigResponse};
 use crate::auth;
 use crate::config::{default_server_url, normalize_server_url, Config};
+use crate::device;
 use crate::loopback;
 
 const SSO_TIMEOUT: Duration = Duration::from_secs(300);
 
-pub async fn run(server: Option<String>, no_browser: bool) -> Result<()> {
+/// Signs in and stores the token. With SSO the default is the device grant:
+/// an approval link any browser can open, so it works over SSH. `listener`
+/// opts into the loopback redirect, which is also the fallback for a server
+/// that has not mounted the device exchange. Without SSO it asks for a password.
+pub async fn run(server: Option<String>, no_browser: bool, listener: bool) -> Result<()> {
     let (server_url, auth_config) = discover_api(resolve_server(server)?).await?;
     let client = ApiClient::new(&server_url, None);
 
-    let use_sso =
-        auth_config.oidc_enabled && (auth_config.sso_only || no_browser || browser_available());
     if auth_config.sso_only && !auth_config.oidc_enabled {
         bail!(
             "{} only allows SSO logins but has no OIDC provider configured",
             server_url
         );
     }
-    let token = if use_sso {
+    let token = if !auth_config.oidc_enabled {
+        password_login(&client).await?
+    } else if listener || !device::exchange_mounted(&server_url).await? {
+        if !listener {
+            crate::ui::warn(
+                "This server has no device sign-in yet, falling back to the browser redirect.",
+            );
+        }
         sso_login(&server_url, no_browser).await?
     } else {
-        password_login(&client).await?
+        let opens = !no_browser && browser_available();
+        device::exchange(&server_url, &device::access_token(opens).await?).await?
     };
 
     auth::store_token(&server_url, &token)?;

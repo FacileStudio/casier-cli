@@ -25,15 +25,20 @@ facile install casier
 ## Setup
 
 ```sh
-casier login                                  # https://casier.facile.studio, opens your browser, no code to paste
+casier login                                  # https://casier.facile.studio, approve a link in any browser, works over SSH
 casier login http://localhost:4000            # against a local API
 casier init                                   # writes casier.yml so -p/-e become optional
 ```
 
 `login` resolves the server from the `url` argument (or `--server`), then `CASIER_SERVER_URL`, then
 the saved config, then `https://casier.facile.studio`, and never prompts for it. When the server offers
-SSO and a browser is available, it opens the browser and finishes on its own. Without a browser
-(SSH, CI) it asks for email and password, or use `--no-browser` to print the SSO URL. It saves the winner to
+SSO, it prints an approval link, tries to open it in a browser (`--no-browser` skips that), and
+finishes once you approve it. Nothing listens on this machine, so the link works from any browser,
+including over SSH. There is no code to type or paste. On a 401, sign in once at the Casier web app
+in a browser, then run `casier login` again: the device exchange never creates an account.
+`--listener` uses the older loopback redirect instead, which needs the browser on this machine, and a
+server without `/auth/oidc/device/exchange` falls back to it on its own. Without SSO it asks for email
+and password. It saves the winner to
 `<config_dir>/casier/config.toml`. It probes both `<url>/auth/config` and `<url>/api/auth/config`,
 so either form of the production URL works.
 

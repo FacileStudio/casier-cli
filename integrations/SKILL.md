@@ -22,7 +22,7 @@ Triggers: "secret", "env var", ".env", "environment variable", "API key", "casie
 
 ### Setup
 ```
-casier login [url] [--no-browser]   Authenticate (default https://casier.facile.studio, opens a browser under SSO)
+casier login [url] [--no-browser] [--listener]   Authenticate by approving a link in any browser, works over SSH (default https://casier.facile.studio)
 casier logout                                  Clear the stored token
 casier init                                    Write casier.yml in the current project
 casier projects                                List projects you belong to
