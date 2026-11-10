@@ -2,6 +2,7 @@
 name = "casier"
 version = "0.4.2"
 edition = "2021"
+license = "MIT"
 description = "Terminal client for Casier, the Facile self-hosted secrets manager"
 repository = "https://github.com/FacileStudio/casier-cli"
 

@@ -91,3 +91,7 @@ all three.
 
 `install.sh` auto-registers casier as an AI agent skill for Claude Code and Codex, so assistants
 can reach for it when you ask about secrets or environment variables.
+
+## License
+
+casier-cli is released under the [MIT License](LICENSE).

@@ -12,6 +12,10 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+### Added
+
+- casier-cli is released under the [MIT License](LICENSE).
+
 ## [0.4.2] - 2026-11-03
 
 ### Fixed
