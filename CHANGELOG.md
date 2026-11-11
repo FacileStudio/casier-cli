@@ -12,9 +12,15 @@ split on 2026-08-06 carried that history over.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-11
+
 ### Added
 
 - casier-cli is released under the [MIT License](LICENSE).
+
+### Fixed
+
+- Dependencies carry the patched quinn-proto, rustls, rustls-webpki, webpki-roots, h2, tokio and rustix releases.
 
 ## [0.4.2] - 2026-11-03
 
